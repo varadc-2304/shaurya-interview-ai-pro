@@ -13,6 +13,7 @@ const CameraFeed = ({ className = '' }: CameraFeedProps) => {
   const [isLoading, setIsLoading] = useState(false);
   const [hasPermission, setHasPermission] = useState<boolean | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [isVideoReady, setIsVideoReady] = useState(false);
   const videoRef = useRef<HTMLVideoElement>(null);
   const { toast } = useToast();
 
@@ -20,6 +21,7 @@ const CameraFeed = ({ className = '' }: CameraFeedProps) => {
     try {
       setIsLoading(true);
       setError(null);
+      setIsVideoReady(false);
       
       console.log('Starting camera...');
       
@@ -41,12 +43,35 @@ const CameraFeed = ({ className = '' }: CameraFeedProps) => {
         videoRef.current.srcObject = mediaStream;
         console.log('Video element srcObject set');
         
-        // Ensure video plays
+        // Handle video loading and playing
         videoRef.current.onloadedmetadata = () => {
           console.log('Video metadata loaded, attempting to play');
-          videoRef.current?.play().catch(err => {
-            console.error('Error playing video:', err);
-          });
+          if (videoRef.current) {
+            videoRef.current.play()
+              .then(() => {
+                console.log('Video playing successfully');
+                setIsVideoReady(true);
+              })
+              .catch(err => {
+                console.error('Error playing video:', err);
+                setError('Failed to play video stream');
+              });
+          }
+        };
+
+        // Additional event listeners for debugging
+        videoRef.current.oncanplay = () => {
+          console.log('Video can start playing');
+        };
+
+        videoRef.current.onplay = () => {
+          console.log('Video started playing');
+          setIsVideoReady(true);
+        };
+
+        videoRef.current.onerror = (e) => {
+          console.error('Video element error:', e);
+          setError('Video element error');
         };
       }
     } catch (err) {
@@ -70,6 +95,10 @@ const CameraFeed = ({ className = '' }: CameraFeedProps) => {
         console.log('Camera track stopped');
       });
       setStream(null);
+      setIsVideoReady(false);
+    }
+    if (videoRef.current) {
+      videoRef.current.srcObject = null;
     }
   };
 
@@ -83,7 +112,7 @@ const CameraFeed = ({ className = '' }: CameraFeedProps) => {
   }, []);
 
   return (
-    <div className={`relative bg-white rounded-3xl overflow-hidden shadow-xl border border-gray-100 ${className}`}>
+    <div className={`relative bg-gray-900 rounded-3xl overflow-hidden shadow-xl border border-gray-200 ${className}`}>
       {/* Minimal Header */}
       <div className="absolute top-6 left-6 z-10">
         <div className="bg-white/90 backdrop-blur-sm rounded-full px-4 py-2 shadow-sm">
@@ -95,17 +124,26 @@ const CameraFeed = ({ className = '' }: CameraFeedProps) => {
       </div>
 
       {/* Video Feed */}
-      {hasPermission && !error && stream ? (
+      {hasPermission && !error && stream && (
         <video
           ref={videoRef}
           autoPlay
           playsInline
           muted
-          className="w-full h-full object-cover"
-          style={{ minHeight: '100%', minWidth: '100%' }}
+          className={`w-full h-full object-cover transition-opacity duration-300 ${
+            isVideoReady ? 'opacity-100' : 'opacity-0'
+          }`}
+          style={{ 
+            minHeight: '100%', 
+            minWidth: '100%',
+            transform: 'scaleX(-1)' // Mirror the video for better user experience
+          }}
         />
-      ) : (
-        <div className="w-full h-full flex flex-col items-center justify-center bg-gradient-to-br from-gray-50 to-gray-100">
+      )}
+
+      {/* Fallback/Loading States */}
+      {(!hasPermission || error || !stream || !isVideoReady) && (
+        <div className="absolute inset-0 w-full h-full flex flex-col items-center justify-center bg-gradient-to-br from-gray-50 to-gray-100">
           {isLoading ? (
             <div className="text-center">
               <Camera className="h-16 w-16 text-gray-300 mx-auto mb-6 animate-pulse" />
@@ -133,7 +171,7 @@ const CameraFeed = ({ className = '' }: CameraFeedProps) => {
       )}
 
       {/* Live indicator */}
-      {hasPermission && stream && (
+      {hasPermission && stream && isVideoReady && (
         <div className="absolute top-6 right-6">
           <div className="bg-red-500 rounded-full px-3 py-1 flex items-center">
             <div className="w-2 h-2 bg-white rounded-full animate-pulse mr-2" />
