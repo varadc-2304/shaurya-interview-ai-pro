@@ -5,10 +5,11 @@ import LoginForm from "@/components/LoginForm";
 import InterviewSetup, { InterviewConfig } from "@/components/InterviewSetup";
 import InterviewSession from "@/components/InterviewSession";
 import InterviewResults from "@/components/InterviewResults";
+import Resume from "@/pages/Resume";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 
-type AppState = 'login' | 'setup' | 'interview' | 'results';
+type AppState = 'login' | 'setup' | 'interview' | 'results' | 'resume';
 
 interface User {
   id: string;
@@ -83,6 +84,18 @@ const Index = () => {
     try {
       if (!user) return;
 
+      // Fetch resume summary to include in interview context
+      let resumeContext = '';
+      const { data: resumeSummary } = await supabase
+        .from('resume_summary')
+        .select('summary_text')
+        .eq('user_id', user.id)
+        .single();
+
+      if (resumeSummary?.summary_text) {
+        resumeContext = `\n\nCandidate Resume Summary: ${resumeSummary.summary_text}`;
+      }
+
       // Create interview record in database
       const { data: interview, error: interviewError } = await supabase
         .from('interviews')
@@ -92,7 +105,7 @@ const Index = () => {
           domain: config.domain,
           experience: config.experienceLevel,
           question_type: config.questionType,
-          additional_constraints: config.additionalConstraints,
+          additional_constraints: config.additionalConstraints + resumeContext,
           status: 'in_progress'
         })
         .select()
@@ -134,6 +147,14 @@ const Index = () => {
     setInterviewId(null);
   };
 
+  const handleNavigateToResume = () => {
+    setCurrentState('resume');
+  };
+
+  const handleBackFromResume = () => {
+    setCurrentState('setup');
+  };
+
   if (currentState === 'login') {
     return <LoginForm onLogin={handleLogin} />;
   }
@@ -144,6 +165,7 @@ const Index = () => {
         isAuthenticated={isAuthenticated}
         onLogin={() => setCurrentState('login')}
         onLogout={handleLogout}
+        onNavigateToResume={handleNavigateToResume}
       />
       
       {currentState === 'setup' && (
@@ -163,6 +185,13 @@ const Index = () => {
         <InterviewResults 
           interviewId={interviewId}
           onStartNewInterview={handleStartNewInterview}
+        />
+      )}
+
+      {currentState === 'resume' && user && (
+        <Resume 
+          onBack={handleBackFromResume}
+          user={user}
         />
       )}
     </div>
