@@ -94,37 +94,27 @@ const HobbiesForm = ({ userId }: HobbiesFormProps) => {
     console.log('Saving hobbies:', hobbies);
 
     try {
-      for (const hobby of hobbies) {
-        // Skip empty hobbies
-        if (!hobby.activity_name.trim()) continue;
+      // First, delete all existing hobbies for this user
+      await supabase.from('hobbies_activities').delete().eq('user_id', userId);
 
-        const hobbyData = {
+      // Then insert all current hobbies (non-empty ones)
+      const hobbiesToInsert = hobbies
+        .filter(hobby => hobby.activity_name.trim())
+        .map(hobby => ({
           user_id: userId,
           activity_name: hobby.activity_name.trim(),
           description: hobby.description.trim() || null
-        };
+        }));
 
-        console.log('Saving hobby:', hobbyData);
-
-        if (hobby.id) {
-          const { error } = await supabase
-            .from('hobbies_activities')
-            .update(hobbyData)
-            .eq('id', hobby.id);
-          
-          if (error) {
-            console.error('Error updating hobby:', error);
-            throw error;
-          }
-        } else {
-          const { error } = await supabase
-            .from('hobbies_activities')
-            .insert(hobbyData);
-          
-          if (error) {
-            console.error('Error inserting hobby:', error);
-            throw error;
-          }
+      if (hobbiesToInsert.length > 0) {
+        console.log('Inserting hobbies:', hobbiesToInsert);
+        const { error } = await supabase
+          .from('hobbies_activities')
+          .insert(hobbiesToInsert);
+        
+        if (error) {
+          console.error('Error inserting hobbies:', error);
+          throw error;
         }
       }
 

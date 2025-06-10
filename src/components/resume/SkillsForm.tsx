@@ -99,38 +99,28 @@ const SkillsForm = ({ userId }: SkillsFormProps) => {
     console.log('Saving skills:', skills);
 
     try {
-      for (const skill of skills) {
-        // Skip empty skills
-        if (!skill.skill_name.trim()) continue;
+      // First, delete all existing skills for this user
+      await supabase.from('resume_skills').delete().eq('user_id', userId);
 
-        const skillData = {
+      // Then insert all current skills (non-empty ones)
+      const skillsToInsert = skills
+        .filter(skill => skill.skill_name.trim())
+        .map(skill => ({
           user_id: userId,
           skill_name: skill.skill_name.trim(),
           skill_category: skill.skill_category || null,
           proficiency_level: skill.proficiency_level || null
-        };
+        }));
 
-        console.log('Saving skill:', skillData);
-
-        if (skill.id) {
-          const { error } = await supabase
-            .from('resume_skills')
-            .update(skillData)
-            .eq('id', skill.id);
-          
-          if (error) {
-            console.error('Error updating skill:', error);
-            throw error;
-          }
-        } else {
-          const { error } = await supabase
-            .from('resume_skills')
-            .insert(skillData);
-          
-          if (error) {
-            console.error('Error inserting skill:', error);
-            throw error;
-          }
+      if (skillsToInsert.length > 0) {
+        console.log('Inserting skills:', skillsToInsert);
+        const { error } = await supabase
+          .from('resume_skills')
+          .insert(skillsToInsert);
+        
+        if (error) {
+          console.error('Error inserting skills:', error);
+          throw error;
         }
       }
 

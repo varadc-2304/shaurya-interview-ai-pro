@@ -105,6 +105,9 @@ const PersonalInfoForm = ({ userId }: PersonalInfoFormProps) => {
         title: "Success",
         description: "Personal information saved successfully.",
       });
+      
+      // Refresh the data to confirm it was saved
+      await fetchPersonalInfo();
     } catch (error) {
       console.error('Error saving personal info:', error);
       toast({
