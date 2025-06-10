@@ -1,24 +1,12 @@
-
 import { useState, useEffect, useRef } from "react";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Progress } from "@/components/ui/progress";
-import { 
-  Mic, 
-  MicOff, 
-  Volume2, 
-  VolumeX, 
-  SkipForward, 
-  StopCircle,
-  Clock,
-  MessageCircle,
-  Brain
-} from "lucide-react";
+import { Brain } from "lucide-react";
 import { InterviewConfig } from "./InterviewSetup";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
-import ResponseComposer from './ResponseComposer';
+import CameraFeed from './CameraFeed';
+import AIAvatar from './AIAvatar';
+import FloatingControls from './FloatingControls';
 
 interface InterviewSessionProps {
   config: InterviewConfig;
@@ -156,12 +144,6 @@ const InterviewSession = ({ config, interviewId, userId, onEndInterview }: Inter
         variant: "destructive"
       });
     }
-  };
-
-  const formatTime = (seconds: number) => {
-    const mins = Math.floor(seconds / 60);
-    const secs = seconds % 60;
-    return `${mins}:${secs.toString().padStart(2, '0')}`;
   };
 
   const handleEnhancedResponse = async (response: {
@@ -340,22 +322,19 @@ const InterviewSession = ({ config, interviewId, userId, onEndInterview }: Inter
     }
   };
 
-  const handleReplayQuestion = () => {
-    if (questions[currentQuestionIndex]) {
-      playQuestion(questions[currentQuestionIndex].text);
-    }
-  };
-
   if (isGeneratingQuestions) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-blue-50 to-white flex items-center justify-center">
-        <Card className="w-full max-w-md text-center shadow-lg border-0">
-          <CardContent className="pt-8 pb-8">
-            <Brain className="h-12 w-12 mx-auto mb-4 text-primary animate-pulse" />
-            <h2 className="text-xl font-semibold mb-2">Generating Questions</h2>
-            <p className="text-muted-foreground">Our AI is preparing personalized interview questions for you...</p>
-          </CardContent>
-        </Card>
+        <div className="text-center bg-white/80 backdrop-blur-xl rounded-2xl p-12 shadow-2xl border border-white/20">
+          <Brain className="h-16 w-16 mx-auto mb-6 text-primary animate-pulse" />
+          <h2 className="text-2xl font-semibold mb-4 shaurya-text-gradient">Preparing Your Interview</h2>
+          <p className="text-muted-foreground text-lg">Our AI is generating personalized questions...</p>
+          <div className="mt-6">
+            <Badge variant="secondary" className="px-4 py-2">
+              {config.jobRole} • {config.domain}
+            </Badge>
+          </div>
+        </div>
       </div>
     );
   }
@@ -363,122 +342,62 @@ const InterviewSession = ({ config, interviewId, userId, onEndInterview }: Inter
   if (questions.length === 0) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-blue-50 to-white flex items-center justify-center">
-        <Card className="w-full max-w-md text-center shadow-lg border-0">
-          <CardContent className="pt-8 pb-8">
-            <h2 className="text-xl font-semibold mb-2 text-red-600">Error</h2>
-            <p className="text-muted-foreground">Failed to generate questions. Please try again.</p>
-          </CardContent>
-        </Card>
+        <div className="text-center bg-white/80 backdrop-blur-xl rounded-2xl p-12 shadow-2xl border border-white/20">
+          <h2 className="text-xl font-semibold mb-2 text-red-600">Error</h2>
+          <p className="text-muted-foreground">Failed to generate questions. Please try again.</p>
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-white p-6">
-      <div className="container mx-auto max-w-4xl">
-        {/* Header */}
-        <div className="mb-6">
-          <div className="flex justify-between items-center mb-4">
-            <div>
-              <h1 className="text-2xl font-bold shaurya-text-gradient">Interview in Progress</h1>
-              <p className="text-muted-foreground">{config.jobRole} • {config.domain}</p>
+    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-900 to-slate-900 overflow-hidden">
+      {/* Header */}
+      <div className="absolute top-6 left-1/2 transform -translate-x-1/2 z-40">
+        <div className="bg-white/10 backdrop-blur-xl rounded-2xl px-6 py-3 border border-white/20">
+          <div className="text-center">
+            <h1 className="text-xl font-bold text-white mb-1">AI Interview Session</h1>
+            <div className="flex items-center justify-center space-x-4 text-sm text-white/80">
+              <span>{config.jobRole}</span>
+              <span>•</span>
+              <span>{config.domain}</span>
+              <span>•</span>
+              <Badge variant="secondary" className="text-xs">
+                {config.questionType}
+              </Badge>
             </div>
-            <div className="flex items-center space-x-4 text-sm text-muted-foreground">
-              <div className="flex items-center space-x-1">
-                <Clock className="h-4 w-4" />
-                <span>{formatTime(duration)}</span>
-              </div>
-              <Badge variant="secondary">{config.questionType}</Badge>
-            </div>
-          </div>
-          
-          <div className="space-y-2">
-            <div className="flex justify-between text-sm">
-              <span>Question {currentQuestionIndex + 1} of {questions.length}</span>
-              <span>{Math.round(progress)}% complete</span>
-            </div>
-            <Progress value={progress} className="h-2" />
-          </div>
-        </div>
-
-        {/* Main Interview Area */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {/* Question Card */}
-          <div className="lg:col-span-2">
-            <Card className="shadow-lg border-0 h-fit">
-              <CardHeader>
-                <CardTitle className="flex items-center space-x-2">
-                  <MessageCircle className="h-5 w-5 text-primary" />
-                  <span>Current Question</span>
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-6">
-                <div className="bg-blue-50 p-6 rounded-lg">
-                  <p className="text-lg leading-relaxed text-gray-800">
-                    {questions[currentQuestionIndex]?.text}
-                  </p>
-                </div>
-                
-                <div className="flex justify-center">
-                  <Button
-                    onClick={handleReplayQuestion}
-                    variant="outline"
-                    className="flex items-center space-x-2"
-                    disabled={isSpeaking}
-                  >
-                    {isSpeaking ? (
-                      <>
-                        <VolumeX className="h-4 w-4" />
-                        <span>Playing...</span>
-                      </>
-                    ) : (
-                      <>
-                        <Volume2 className="h-4 w-4" />
-                        <span>Replay Question</span>
-                      </>
-                    )}
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
-          </div>
-
-          {/* Controls */}
-          <div className="space-y-6">
-            {/* Enhanced Response Composer */}
-            <ResponseComposer
-              onSubmitResponse={handleEnhancedResponse}
-              isProcessing={isProcessing}
-              disabled={isSpeaking}
-            />
-
-            {/* Navigation */}
-            <Card className="shadow-lg border-0">
-              <CardContent className="pt-6 space-y-3">
-                <Button
-                  onClick={handleNextQuestion}
-                  variant="outline"
-                  className="w-full"
-                  disabled={isProcessing}
-                >
-                  <SkipForward className="mr-2 h-4 w-4" />
-                  {currentQuestionIndex < questions.length - 1 ? 'Next Question' : 'Finish Interview'}
-                </Button>
-                
-                <Button
-                  onClick={handleFinishInterview}
-                  variant="destructive"
-                  className="w-full"
-                  disabled={isProcessing}
-                >
-                  <StopCircle className="mr-2 h-4 w-4" />
-                  End Interview
-                </Button>
-              </CardContent>
-            </Card>
           </div>
         </div>
       </div>
+
+      {/* Main Split Screen Layout */}
+      <div className="min-h-screen grid grid-cols-2 gap-8 p-8 pt-24">
+        {/* Left Side - User Camera */}
+        <div className="flex items-center justify-center">
+          <CameraFeed className="w-full h-96 max-w-lg" />
+        </div>
+
+        {/* Right Side - AI Avatar */}
+        <div className="flex items-center justify-center">
+          <AIAvatar 
+            isSpeaking={isSpeaking} 
+            className="w-full h-96 max-w-lg" 
+          />
+        </div>
+      </div>
+
+      {/* Floating Controls */}
+      <FloatingControls
+        onSubmitResponse={handleEnhancedResponse}
+        onNextQuestion={handleNextQuestion}
+        onEndInterview={handleFinishInterview}
+        isProcessing={isProcessing}
+        disabled={isSpeaking}
+        currentQuestion={currentQuestionIndex + 1}
+        totalQuestions={questions.length}
+        duration={duration}
+        progress={progress}
+      />
     </div>
   );
 };
