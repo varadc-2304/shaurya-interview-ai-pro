@@ -1,5 +1,5 @@
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -16,42 +16,43 @@ import {
   Brain
 } from "lucide-react";
 import { InterviewConfig } from "./InterviewSetup";
+import { useToast } from "@/hooks/use-toast";
+import { supabase } from "@/integrations/supabase/client";
 
 interface InterviewSessionProps {
   config: InterviewConfig;
-  onEndInterview: (results: InterviewResults) => void;
+  interviewId: string;
+  userId: string;
+  onEndInterview: () => void;
 }
 
-export interface InterviewResults {
-  questions: {
-    question: string;
-    userAnswer: string;
-    aiEvaluation: string;
-    score: number;
-  }[];
-  overallScore: number;
-  feedback: string;
-  duration: number;
+interface Question {
+  id: string;
+  text: string;
+  number: number;
 }
 
-const InterviewSession = ({ config, onEndInterview }: InterviewSessionProps) => {
-  const [currentQuestion, setCurrentQuestion] = useState(0);
+const InterviewSession = ({ config, interviewId, userId, onEndInterview }: InterviewSessionProps) => {
+  const [questions, setQuestions] = useState<Question[]>([]);
+  const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
   const [isRecording, setIsRecording] = useState(false);
   const [isSpeaking, setIsSpeaking] = useState(false);
   const [progress, setProgress] = useState(0);
   const [duration, setDuration] = useState(0);
   const [isProcessing, setIsProcessing] = useState(false);
+  const [isGeneratingQuestions, setIsGeneratingQuestions] = useState(true);
+  
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const audioChunksRef = useRef<Blob[]>([]);
+  const audioRef = useRef<HTMLAudioElement | null>(null);
+  
+  const { toast } = useToast();
 
-  // Mock questions for demonstration
-  const mockQuestions = [
-    "Tell me about yourself and why you're interested in this role.",
-    "Describe a challenging project you worked on and how you overcame obstacles.",
-    "How do you handle working under pressure and tight deadlines?",
-    "What are your greatest strengths and how do they apply to this position?",
-    "Where do you see yourself in 5 years?"
-  ];
+  const totalQuestions = 5;
 
-  const totalQuestions = mockQuestions.length;
+  useEffect(() => {
+    generateQuestions();
+  }, []);
 
   useEffect(() => {
     const timer = setInterval(() => {
@@ -62,8 +63,97 @@ const InterviewSession = ({ config, onEndInterview }: InterviewSessionProps) => 
   }, []);
 
   useEffect(() => {
-    setProgress((currentQuestion / totalQuestions) * 100);
-  }, [currentQuestion, totalQuestions]);
+    setProgress((currentQuestionIndex / totalQuestions) * 100);
+  }, [currentQuestionIndex, totalQuestions]);
+
+  const generateQuestions = async () => {
+    try {
+      setIsGeneratingQuestions(true);
+      const { data, error } = await supabase.functions.invoke('generate-questions', {
+        body: {
+          jobRole: config.jobRole,
+          domain: config.domain,
+          experienceLevel: config.experienceLevel,
+          questionType: config.questionType,
+          additionalConstraints: config.additionalConstraints,
+          numQuestions: totalQuestions
+        }
+      });
+
+      if (error) throw error;
+
+      if (data?.questions) {
+        const questionList = data.questions.map((q: string, index: number) => ({
+          id: `q${index + 1}`,
+          text: q,
+          number: index + 1
+        }));
+        
+        setQuestions(questionList);
+        
+        // Store questions in database
+        for (const question of questionList) {
+          await supabase.from('interview_questions').insert({
+            interview_id: interviewId,
+            question_number: question.number,
+            question_text: question.text
+          });
+        }
+        
+        // Read out first question
+        if (questionList.length > 0) {
+          await playQuestion(questionList[0].text);
+        }
+      }
+    } catch (error) {
+      console.error('Error generating questions:', error);
+      toast({
+        title: "Error",
+        description: "Failed to generate questions. Please try again.",
+        variant: "destructive"
+      });
+    } finally {
+      setIsGeneratingQuestions(false);
+    }
+  };
+
+  const playQuestion = async (questionText: string) => {
+    try {
+      setIsSpeaking(true);
+      const { data, error } = await supabase.functions.invoke('text-to-speech', {
+        body: {
+          text: questionText,
+          voice: 'alloy'
+        }
+      });
+
+      if (error) throw error;
+
+      if (data?.audioContent) {
+        const audioBlob = new Blob([
+          Uint8Array.from(atob(data.audioContent), c => c.charCodeAt(0))
+        ], { type: 'audio/mp3' });
+        
+        const audioUrl = URL.createObjectURL(audioBlob);
+        audioRef.current = new Audio(audioUrl);
+        
+        audioRef.current.onended = () => {
+          setIsSpeaking(false);
+          URL.revokeObjectURL(audioUrl);
+        };
+        
+        await audioRef.current.play();
+      }
+    } catch (error) {
+      console.error('Error playing question:', error);
+      setIsSpeaking(false);
+      toast({
+        title: "Audio Error",
+        description: "Failed to play question audio.",
+        variant: "destructive"
+      });
+    }
+  };
 
   const formatTime = (seconds: number) => {
     const mins = Math.floor(seconds / 60);
@@ -71,57 +161,186 @@ const InterviewSession = ({ config, onEndInterview }: InterviewSessionProps) => 
     return `${mins}:${secs.toString().padStart(2, '0')}`;
   };
 
-  const handleStartRecording = () => {
-    setIsRecording(true);
-    // Here you would integrate with speech-to-text API
-    console.log("Starting to record user response...");
-  };
+  const startRecording = async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      mediaRecorderRef.current = new MediaRecorder(stream);
+      audioChunksRef.current = [];
 
-  const handleStopRecording = () => {
-    setIsRecording(false);
-    setIsProcessing(true);
-    
-    // Simulate processing time
-    setTimeout(() => {
-      setIsProcessing(false);
-      handleNextQuestion();
-    }, 2000);
-  };
+      mediaRecorderRef.current.ondataavailable = (event) => {
+        audioChunksRef.current.push(event.data);
+      };
 
-  const handleNextQuestion = () => {
-    if (currentQuestion < totalQuestions - 1) {
-      setCurrentQuestion(currentQuestion + 1);
-      // Simulate AI speaking the next question
-      setIsSpeaking(true);
-      setTimeout(() => setIsSpeaking(false), 3000);
-    } else {
-      handleFinishInterview();
+      mediaRecorderRef.current.onstop = async () => {
+        const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/webm' });
+        await handleAudioRecorded(audioBlob);
+        stream.getTracks().forEach(track => track.stop());
+      };
+
+      mediaRecorderRef.current.start();
+      setIsRecording(true);
+    } catch (error) {
+      console.error('Error starting recording:', error);
+      toast({
+        title: "Recording Error",
+        description: "Failed to start recording. Please check microphone permissions.",
+        variant: "destructive"
+      });
     }
   };
 
-  const handleFinishInterview = () => {
-    // Generate mock results
-    const mockResults: InterviewResults = {
-      questions: mockQuestions.map(q => ({
-        question: q,
-        userAnswer: "Mock user response...",
-        aiEvaluation: "Good response with room for improvement in specific examples.",
-        score: Math.floor(Math.random() * 30) + 70
-      })),
-      overallScore: 82,
-      feedback: "Overall strong performance with good communication skills. Focus on providing more specific examples.",
-      duration: duration
-    };
-
-    onEndInterview(mockResults);
+  const stopRecording = () => {
+    if (mediaRecorderRef.current && isRecording) {
+      mediaRecorderRef.current.stop();
+      setIsRecording(false);
+      setIsProcessing(true);
+    }
   };
 
-  const handlePlayQuestion = () => {
-    setIsSpeaking(true);
-    // Here you would integrate with text-to-speech API
-    console.log("Playing question:", mockQuestions[currentQuestion]);
-    setTimeout(() => setIsSpeaking(false), 3000);
+  const handleAudioRecorded = async (audioBlob: Blob) => {
+    try {
+      // Upload to Supabase storage
+      const fileName = `interview_${interviewId}_q${currentQuestionIndex + 1}_${Date.now()}.webm`;
+      const { data: uploadData, error: uploadError } = await supabase.storage
+        .from('audio_files')
+        .upload(fileName, audioBlob);
+
+      if (uploadError) throw uploadError;
+
+      // Get public URL
+      const { data: { publicUrl } } = supabase.storage
+        .from('audio_files')
+        .getPublicUrl(fileName);
+
+      // Convert audio to text
+      const reader = new FileReader();
+      reader.onload = async () => {
+        const base64Audio = (reader.result as string).split(',')[1];
+        
+        const { data, error } = await supabase.functions.invoke('speech-to-text', {
+          body: { audio: base64Audio }
+        });
+
+        if (error) throw error;
+
+        const userResponse = data?.text || '';
+        
+        // Evaluate response
+        const currentQuestion = questions[currentQuestionIndex];
+        await evaluateResponse(currentQuestion, userResponse);
+        
+        // Update interview question with response
+        await supabase
+          .from('interview_questions')
+          .update({
+            user_response: userResponse
+          })
+          .eq('interview_id', interviewId)
+          .eq('question_number', currentQuestionIndex + 1);
+      };
+      
+      reader.readAsDataURL(audioBlob);
+    } catch (error) {
+      console.error('Error processing audio:', error);
+      toast({
+        title: "Processing Error",
+        description: "Failed to process your response.",
+        variant: "destructive"
+      });
+    } finally {
+      setIsProcessing(false);
+    }
   };
+
+  const evaluateResponse = async (question: Question, userResponse: string) => {
+    try {
+      const { data, error } = await supabase.functions.invoke('evaluate-response', {
+        body: {
+          question: question.text,
+          answer: userResponse,
+          jobRole: config.jobRole,
+          domain: config.domain
+        }
+      });
+
+      if (error) throw error;
+
+      // Update database with evaluation
+      await supabase
+        .from('interview_questions')
+        .update({
+          evaluation_score: data?.score || 0,
+          evaluation_feedback: data?.feedback || '',
+          strengths: data?.strengths || [],
+          improvements: data?.improvements || []
+        })
+        .eq('interview_id', interviewId)
+        .eq('question_number', question.number);
+
+    } catch (error) {
+      console.error('Error evaluating response:', error);
+    }
+  };
+
+  const handleNextQuestion = async () => {
+    if (currentQuestionIndex < questions.length - 1) {
+      const nextIndex = currentQuestionIndex + 1;
+      setCurrentQuestionIndex(nextIndex);
+      await playQuestion(questions[nextIndex].text);
+    } else {
+      await handleFinishInterview();
+    }
+  };
+
+  const handleFinishInterview = async () => {
+    try {
+      // Update interview status
+      await supabase
+        .from('interviews')
+        .update({
+          status: 'completed',
+          completed_at: new Date().toISOString()
+        })
+        .eq('id', interviewId);
+
+      onEndInterview();
+    } catch (error) {
+      console.error('Error finishing interview:', error);
+    }
+  };
+
+  const handleReplayQuestion = () => {
+    if (questions[currentQuestionIndex]) {
+      playQuestion(questions[currentQuestionIndex].text);
+    }
+  };
+
+  if (isGeneratingQuestions) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-white flex items-center justify-center">
+        <Card className="w-full max-w-md text-center shadow-lg border-0">
+          <CardContent className="pt-8 pb-8">
+            <Brain className="h-12 w-12 mx-auto mb-4 text-primary animate-pulse" />
+            <h2 className="text-xl font-semibold mb-2">Generating Questions</h2>
+            <p className="text-muted-foreground">Our AI is preparing personalized interview questions for you...</p>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+  if (questions.length === 0) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-white flex items-center justify-center">
+        <Card className="w-full max-w-md text-center shadow-lg border-0">
+          <CardContent className="pt-8 pb-8">
+            <h2 className="text-xl font-semibold mb-2 text-red-600">Error</h2>
+            <p className="text-muted-foreground">Failed to generate questions. Please try again.</p>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-white p-6">
@@ -144,7 +363,7 @@ const InterviewSession = ({ config, onEndInterview }: InterviewSessionProps) => 
           
           <div className="space-y-2">
             <div className="flex justify-between text-sm">
-              <span>Question {currentQuestion + 1} of {totalQuestions}</span>
+              <span>Question {currentQuestionIndex + 1} of {questions.length}</span>
               <span>{Math.round(progress)}% complete</span>
             </div>
             <Progress value={progress} className="h-2" />
@@ -165,13 +384,13 @@ const InterviewSession = ({ config, onEndInterview }: InterviewSessionProps) => 
               <CardContent className="space-y-6">
                 <div className="bg-blue-50 p-6 rounded-lg">
                   <p className="text-lg leading-relaxed text-gray-800">
-                    {mockQuestions[currentQuestion]}
+                    {questions[currentQuestionIndex]?.text}
                   </p>
                 </div>
                 
                 <div className="flex justify-center">
                   <Button
-                    onClick={handlePlayQuestion}
+                    onClick={handleReplayQuestion}
                     variant="outline"
                     className="flex items-center space-x-2"
                     disabled={isSpeaking}
@@ -204,14 +423,14 @@ const InterviewSession = ({ config, onEndInterview }: InterviewSessionProps) => 
               <CardContent className="space-y-4">
                 <div className="flex justify-center">
                   <Button
-                    onClick={isRecording ? handleStopRecording : handleStartRecording}
+                    onClick={isRecording ? stopRecording : startRecording}
                     size="lg"
                     className={`w-20 h-20 rounded-full ${
                       isRecording 
                         ? 'bg-red-500 hover:bg-red-600 animate-pulse' 
                         : 'shaurya-gradient hover:opacity-90'
                     } transition-all`}
-                    disabled={isProcessing}
+                    disabled={isProcessing || isSpeaking}
                   >
                     {isRecording ? (
                       <MicOff className="h-8 w-8" />
@@ -248,7 +467,7 @@ const InterviewSession = ({ config, onEndInterview }: InterviewSessionProps) => 
                   disabled={isRecording || isProcessing}
                 >
                   <SkipForward className="mr-2 h-4 w-4" />
-                  Next Question
+                  {currentQuestionIndex < questions.length - 1 ? 'Next Question' : 'Finish Interview'}
                 </Button>
                 
                 <Button

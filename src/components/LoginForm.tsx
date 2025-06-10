@@ -8,16 +8,18 @@ import { Mail, Lock, ArrowRight } from "lucide-react";
 
 interface LoginFormProps {
   onLogin: (email: string, password: string) => void;
-  onSwitchToSignup: () => void;
 }
 
-const LoginForm = ({ onLogin, onSwitchToSignup }: LoginFormProps) => {
+const LoginForm = ({ onLogin }: LoginFormProps) => {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [isLoading, setIsLoading] = useState(false);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    onLogin(email, password);
+    setIsLoading(true);
+    await onLogin(email, password);
+    setIsLoading(false);
   };
 
   return (
@@ -71,24 +73,17 @@ const LoginForm = ({ onLogin, onSwitchToSignup }: LoginFormProps) => {
             
             <Button 
               type="submit" 
+              disabled={isLoading}
               className="w-full shaurya-gradient hover:opacity-90 transition-opacity h-12 text-base font-medium"
             >
-              Sign In
-              <ArrowRight className="ml-2 h-4 w-4" />
+              {isLoading ? "Signing In..." : (
+                <>
+                  Sign In
+                  <ArrowRight className="ml-2 h-4 w-4" />
+                </>
+              )}
             </Button>
           </form>
-          
-          <div className="mt-6 text-center">
-            <p className="text-sm text-muted-foreground">
-              Don't have an account?{" "}
-              <button
-                onClick={onSwitchToSignup}
-                className="font-medium text-primary hover:underline"
-              >
-                Sign up
-              </button>
-            </p>
-          </div>
         </CardContent>
       </Card>
     </div>

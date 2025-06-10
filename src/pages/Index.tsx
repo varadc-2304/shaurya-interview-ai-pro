@@ -2,65 +2,125 @@
 import { useState } from "react";
 import Header from "@/components/Header";
 import LoginForm from "@/components/LoginForm";
-import SignupForm from "@/components/SignupForm";
 import InterviewSetup, { InterviewConfig } from "@/components/InterviewSetup";
 import InterviewSession from "@/components/InterviewSession";
-import InterviewResults, { InterviewResults as IInterviewResults } from "@/components/InterviewResults";
+import InterviewResults from "@/components/InterviewResults";
 import { useToast } from "@/hooks/use-toast";
+import { supabase } from "@/integrations/supabase/client";
 
-type AppState = 'login' | 'signup' | 'setup' | 'interview' | 'results';
+type AppState = 'login' | 'setup' | 'interview' | 'results';
+
+interface User {
+  id: string;
+  email: string;
+  name: string;
+  role: string;
+}
 
 const Index = () => {
   const [currentState, setCurrentState] = useState<AppState>('login');
   const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [user, setUser] = useState<User | null>(null);
   const [interviewConfig, setInterviewConfig] = useState<InterviewConfig | null>(null);
-  const [interviewResults, setInterviewResults] = useState<IInterviewResults | null>(null);
+  const [interviewId, setInterviewId] = useState<string | null>(null);
   const { toast } = useToast();
 
-  const handleLogin = (email: string, password: string) => {
-    // Mock authentication
-    console.log("Login attempt:", { email, password });
-    setIsAuthenticated(true);
-    setCurrentState('setup');
-    toast({
-      title: "Welcome to Shaurya!",
-      description: "You have successfully logged in.",
-    });
-  };
+  const handleLogin = async (email: string, password: string) => {
+    try {
+      // Query the auth table for user credentials
+      const { data: authData, error: authError } = await supabase
+        .from('auth')
+        .select('*')
+        .eq('email', email)
+        .eq('password', password)
+        .single();
 
-  const handleSignup = (name: string, email: string, password: string) => {
-    // Mock signup
-    console.log("Signup attempt:", { name, email, password });
-    setIsAuthenticated(true);
-    setCurrentState('setup');
-    toast({
-      title: "Account Created!",
-      description: "Welcome to Shaurya. Let's set up your first interview.",
-    });
+      if (authError || !authData) {
+        toast({
+          title: "Login Failed",
+          description: "Invalid email or password.",
+          variant: "destructive"
+        });
+        return;
+      }
+
+      setUser({
+        id: authData.id,
+        email: authData.email,
+        name: authData.name || authData.email.split('@')[0],
+        role: authData.role
+      });
+      setIsAuthenticated(true);
+      setCurrentState('setup');
+      
+      toast({
+        title: "Welcome to Shaurya!",
+        description: "You have successfully logged in.",
+      });
+    } catch (error) {
+      console.error("Login error:", error);
+      toast({
+        title: "Login Failed",
+        description: "An error occurred during login.",
+        variant: "destructive"
+      });
+    }
   };
 
   const handleLogout = () => {
     setIsAuthenticated(false);
+    setUser(null);
     setCurrentState('login');
     setInterviewConfig(null);
-    setInterviewResults(null);
+    setInterviewId(null);
     toast({
       title: "Logged out",
       description: "You have been successfully logged out.",
     });
   };
 
-  const handleStartInterview = (config: InterviewConfig) => {
-    setInterviewConfig(config);
-    setCurrentState('interview');
-    toast({
-      title: "Interview Starting",
-      description: "Your AI mock interview is beginning. Good luck!",
-    });
+  const handleStartInterview = async (config: InterviewConfig) => {
+    try {
+      if (!user) return;
+
+      // Create interview record in database
+      const { data: interview, error: interviewError } = await supabase
+        .from('interviews')
+        .insert({
+          user_id: user.id,
+          job_role: config.jobRole,
+          domain: config.domain,
+          experience: config.experienceLevel,
+          question_type: config.questionType,
+          additional_constraints: config.additionalConstraints,
+          status: 'in_progress'
+        })
+        .select()
+        .single();
+
+      if (interviewError) {
+        throw interviewError;
+      }
+
+      setInterviewId(interview.id);
+      setInterviewConfig(config);
+      setCurrentState('interview');
+      
+      toast({
+        title: "Interview Starting",
+        description: "Your AI mock interview is beginning. Good luck!",
+      });
+    } catch (error) {
+      console.error("Error starting interview:", error);
+      toast({
+        title: "Error",
+        description: "Failed to start interview. Please try again.",
+        variant: "destructive"
+      });
+    }
   };
 
-  const handleEndInterview = (results: IInterviewResults) => {
-    setInterviewResults(results);
+  const handleEndInterview = () => {
     setCurrentState('results');
     toast({
       title: "Interview Complete!",
@@ -71,15 +131,11 @@ const Index = () => {
   const handleStartNewInterview = () => {
     setCurrentState('setup');
     setInterviewConfig(null);
-    setInterviewResults(null);
+    setInterviewId(null);
   };
 
   if (currentState === 'login') {
-    return <LoginForm onLogin={handleLogin} onSwitchToSignup={() => setCurrentState('signup')} />;
-  }
-
-  if (currentState === 'signup') {
-    return <SignupForm onSignup={handleSignup} onSwitchToLogin={() => setCurrentState('login')} />;
+    return <LoginForm onLogin={handleLogin} />;
   }
 
   return (
@@ -94,16 +150,18 @@ const Index = () => {
         <InterviewSetup onStartInterview={handleStartInterview} />
       )}
       
-      {currentState === 'interview' && interviewConfig && (
+      {currentState === 'interview' && interviewConfig && interviewId && user && (
         <InterviewSession 
           config={interviewConfig}
+          interviewId={interviewId}
+          userId={user.id}
           onEndInterview={handleEndInterview}
         />
       )}
       
-      {currentState === 'results' && interviewResults && (
+      {currentState === 'results' && interviewId && (
         <InterviewResults 
-          results={interviewResults}
+          interviewId={interviewId}
           onStartNewInterview={handleStartNewInterview}
         />
       )}
