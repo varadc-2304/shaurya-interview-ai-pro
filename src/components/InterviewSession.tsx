@@ -1,3 +1,4 @@
+
 import { useState, useEffect, useRef } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Brain } from "lucide-react";
@@ -432,5 +433,3 @@ const InterviewSession = ({ config, interviewId, userId, onEndInterview }: Inter
 };
 
 export default InterviewSession;
-
-}
