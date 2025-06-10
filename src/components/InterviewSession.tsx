@@ -1,4 +1,3 @@
-
 import { useState, useEffect, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -69,16 +68,20 @@ const InterviewSession = ({ config, interviewId, userId, onEndInterview }: Inter
   const generateQuestions = async () => {
     try {
       setIsGeneratingQuestions(true);
+      console.log("Generating questions with config:", config);
+      
       const { data, error } = await supabase.functions.invoke('generate-questions', {
         body: {
           jobRole: config.jobRole,
           domain: config.domain,
           experienceLevel: config.experienceLevel,
-          questionType: config.questionType,
+          interviewType: config.questionType, // Fixed: was questionType, should be interviewType
           additionalConstraints: config.additionalConstraints,
           numQuestions: totalQuestions
         }
       });
+
+      console.log("Generate questions response:", data, error);
 
       if (error) throw error;
 
