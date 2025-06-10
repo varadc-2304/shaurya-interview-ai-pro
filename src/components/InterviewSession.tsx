@@ -19,6 +19,9 @@ interface Question {
   id: string;
   text: string;
   number: number;
+  type: string;
+  difficulty: string;
+  focus_area: string;
 }
 
 const InterviewSession = ({ config, interviewId, userId, onEndInterview }: InterviewSessionProps) => {
@@ -55,6 +58,7 @@ const InterviewSession = ({ config, interviewId, userId, onEndInterview }: Inter
     try {
       setIsGeneratingQuestions(true);
       console.log("Generating questions with config:", config);
+      console.log("User ID for personalization:", userId);
       
       const { data, error } = await supabase.functions.invoke('generate-questions', {
         body: {
@@ -63,7 +67,8 @@ const InterviewSession = ({ config, interviewId, userId, onEndInterview }: Inter
           experienceLevel: config.experienceLevel,
           interviewType: config.questionType,
           additionalConstraints: config.additionalConstraints,
-          numQuestions: totalQuestions
+          numQuestions: totalQuestions,
+          userId: userId // Pass userId for resume personalization
         }
       });
 
@@ -75,10 +80,22 @@ const InterviewSession = ({ config, interviewId, userId, onEndInterview }: Inter
         const questionList = data.questions.map((q: any, index: number) => ({
           id: `q${index + 1}`,
           text: q.question,
-          number: index + 1
+          number: index + 1,
+          type: q.type || 'general',
+          difficulty: q.difficulty || 'medium',
+          focus_area: q.focus_area || config.domain
         }));
         
         setQuestions(questionList);
+        
+        // Log if questions were personalized
+        if (data.resumePersonalized) {
+          console.log("Questions were personalized based on user's resume");
+          toast({
+            title: "Personalized Questions",
+            description: "Questions have been tailored based on your resume.",
+          });
+        }
         
         // Store questions in database
         for (const question of questionList) {
