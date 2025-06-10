@@ -102,123 +102,108 @@ const FloatingControls = ({
   };
 
   return (
-    <div className="fixed bottom-8 left-1/2 transform -translate-x-1/2 z-50 w-full max-w-4xl px-6">
-      {/* Progress Bar - Top */}
-      <div className="mb-6">
-        <div className="bg-white/95 backdrop-blur-xl rounded-2xl shadow-lg border border-gray-200 p-4">
+    <div className="fixed bottom-0 left-0 right-0 z-50 bg-white border-t border-gray-200">
+      {/* Progress Bar */}
+      <div className="px-8 py-4 border-b border-gray-100">
+        <div className="max-w-7xl mx-auto">
           <div className="flex items-center justify-between mb-3">
-            <div className="flex items-center space-x-4">
+            <div className="flex items-center space-x-6">
               <div className="flex items-center space-x-2 text-gray-600">
                 <Clock className="h-4 w-4" />
-                <span className="font-medium">{formatTime(duration)}</span>
+                <span className="font-medium text-sm">{formatTime(duration)}</span>
               </div>
-              <Badge variant="secondary" className="bg-blue-50 text-blue-700 border-blue-200">
-                Question {currentQuestion} of {totalQuestions}
+              <Badge variant="secondary" className="bg-blue-50 text-blue-700 border-blue-200 text-sm">
+                {currentQuestion} / {totalQuestions}
               </Badge>
             </div>
-            <span className="text-gray-500 font-medium">{Math.round(progress)}% complete</span>
+            <span className="text-gray-500 font-medium text-sm">{Math.round(progress)}%</span>
           </div>
-          <Progress value={progress} className="h-2" />
+          <Progress value={progress} className="h-1.5" />
         </div>
       </div>
 
       {/* Main Controls */}
-      <div className="bg-white/95 backdrop-blur-xl rounded-3xl shadow-xl border border-gray-200 p-8">
-        <div className="flex items-center justify-center space-x-8">
-          {/* Text Editor */}
-          <div className="flex flex-col items-center space-y-3">
-            <TextEditor
-              onSave={updateTextContent}
-              initialText={response.textContent}
-            />
-            <span className="text-xs text-gray-500 font-medium">Add Text</span>
-            {response.hasText && (
-              <div className="w-2 h-2 bg-green-500 rounded-full"></div>
-            )}
-          </div>
+      <div className="px-8 py-6">
+        <div className="max-w-7xl mx-auto">
+          <div className="flex items-center justify-center space-x-8">
+            {/* Text Editor */}
+            <div className="relative">
+              <TextEditor
+                onSave={updateTextContent}
+                initialText={response.textContent}
+              />
+              {response.hasText && (
+                <div className="absolute -top-1 -right-1 w-3 h-3 bg-green-500 rounded-full border-2 border-white"></div>
+              )}
+            </div>
 
-          {/* Main Recording Button */}
-          <div className="flex flex-col items-center space-y-4">
+            {/* Code Editor */}
+            <div className="relative">
+              <CodeEditor
+                onSave={updateCodeContent}
+                initialCode={response.codeContent}
+                initialLanguage={response.codeLanguage}
+              />
+              {response.hasCode && (
+                <div className="absolute -top-1 -right-1 w-3 h-3 bg-green-500 rounded-full border-2 border-white"></div>
+              )}
+            </div>
+
+            {/* Main Recording Button */}
             <Button
               onClick={isRecording ? stopRecording : handleStartRecording}
               size="lg"
-              className={`w-24 h-24 rounded-full transition-all duration-300 transform hover:scale-105 ${
+              className={`w-16 h-16 rounded-full transition-all duration-300 relative ${
                 isRecording 
-                  ? 'bg-red-500 hover:bg-red-600 animate-pulse shadow-lg shadow-red-500/30' 
-                  : 'bg-blue-600 hover:bg-blue-700 shadow-lg shadow-blue-500/30'
+                  ? 'bg-red-500 hover:bg-red-600 animate-pulse' 
+                  : 'bg-blue-600 hover:bg-blue-700'
               }`}
               disabled={disabled || isProcessing}
             >
               {isRecording ? (
-                <MicOff className="h-10 w-10" />
+                <MicOff className="h-6 w-6" />
               ) : (
-                <Mic className="h-10 w-10" />
+                <Mic className="h-6 w-6" />
+              )}
+              {response.hasAudio && (
+                <div className="absolute -top-1 -right-1 w-3 h-3 bg-green-500 rounded-full border-2 border-white"></div>
               )}
             </Button>
+
+            {/* Submit Button */}
+            <Button
+              onClick={handleSubmit}
+              disabled={!hasAnyContent || isProcessing || disabled || isRecording}
+              className="px-6 py-3 rounded-xl bg-blue-600 hover:bg-blue-700"
+            >
+              {isProcessing ? (
+                <div className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
+              ) : (
+                <Send className="h-4 w-4" />
+              )}
+            </Button>
+
+            {/* Next Question */}
+            <Button
+              onClick={onNextQuestion}
+              variant="outline"
+              disabled={isProcessing}
+              className="px-4 py-3 rounded-xl"
+            >
+              <SkipForward className="h-4 w-4" />
+            </Button>
             
-            <p className="text-sm text-gray-600 font-medium text-center">
-              {isRecording ? "Recording..." : "Record Answer"}
-            </p>
-            
-            {response.hasAudio && (
-              <div className="w-2 h-2 bg-green-500 rounded-full"></div>
-            )}
+            {/* End Interview */}
+            <Button
+              onClick={onEndInterview}
+              variant="destructive"
+              disabled={isProcessing}
+              size="sm"
+              className="px-4 py-3 rounded-xl"
+            >
+              <StopCircle className="h-4 w-4" />
+            </Button>
           </div>
-
-          {/* Code Editor */}
-          <div className="flex flex-col items-center space-y-3">
-            <CodeEditor
-              onSave={updateCodeContent}
-              initialCode={response.codeContent}
-              initialLanguage={response.codeLanguage}
-            />
-            <span className="text-xs text-gray-500 font-medium">Add Code</span>
-            {response.hasCode && (
-              <div className="w-2 h-2 bg-green-500 rounded-full"></div>
-            )}
-          </div>
-        </div>
-
-        {/* Action Buttons */}
-        <div className="flex items-center justify-center space-x-4 mt-8 pt-6 border-t border-gray-100">
-          <Button
-            onClick={handleSubmit}
-            disabled={!hasAnyContent || isProcessing || disabled || isRecording}
-            className="px-8 py-3 rounded-xl bg-blue-600 hover:bg-blue-700"
-          >
-            {isProcessing ? (
-              <>
-                <div className="mr-2 h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
-                Processing...
-              </>
-            ) : (
-              <>
-                <Send className="mr-2 h-4 w-4" />
-                Submit Response
-              </>
-            )}
-          </Button>
-
-          <Button
-            onClick={onNextQuestion}
-            variant="outline"
-            disabled={isProcessing}
-            className="px-6 py-3 rounded-xl border-gray-300"
-          >
-            <SkipForward className="mr-2 h-4 w-4" />
-            {currentQuestion < totalQuestions ? 'Next Question' : 'Finish'}
-          </Button>
-          
-          <Button
-            onClick={onEndInterview}
-            variant="destructive"
-            disabled={isProcessing}
-            size="sm"
-            className="px-4 py-3 rounded-xl"
-          >
-            <StopCircle className="mr-2 h-4 w-4" />
-            End Interview
-          </Button>
         </div>
       </div>
     </div>
