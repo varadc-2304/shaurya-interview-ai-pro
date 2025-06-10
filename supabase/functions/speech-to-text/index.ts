@@ -26,32 +26,19 @@ serve(async (req) => {
       throw new Error('ElevenLabs API key not configured');
     }
 
-    console.log('Fetching audio from URL...');
-    
-    // Fetch the audio file from the URL
-    const audioResponse = await fetch(audioUrl);
-    if (!audioResponse.ok) {
-      throw new Error(`Failed to fetch audio: ${audioResponse.status} ${audioResponse.statusText}`);
-    }
+    console.log('Sending request to ElevenLabs API with cloud_storage_url...');
 
-    const audioBuffer = await audioResponse.arrayBuffer();
-    console.log('Audio buffer size:', audioBuffer.byteLength);
-
-    // Create form data for ElevenLabs API
-    const formData = new FormData();
-    const audioBlob = new Blob([audioBuffer], { type: 'audio/webm' });
-    formData.append('audio', audioBlob);
-    formData.append('model_id', 'whisper-1'); // ElevenLabs speech-to-text model
-
-    console.log('Sending request to ElevenLabs API...');
-
-    // Send to ElevenLabs speech-to-text API
+    // Send to ElevenLabs speech-to-text API using cloud_storage_url parameter
     const elevenLabsResponse = await fetch('https://api.elevenlabs.io/v1/speech-to-text', {
       method: 'POST',
       headers: {
         'xi-api-key': elevenLabsApiKey,
+        'Content-Type': 'application/json',
       },
-      body: formData,
+      body: JSON.stringify({
+        model_id: 'whisper-1',
+        cloud_storage_url: audioUrl
+      }),
     });
 
     console.log('ElevenLabs response status:', elevenLabsResponse.status);
