@@ -21,6 +21,8 @@ const CameraFeed = ({ className = '' }: CameraFeedProps) => {
       setIsLoading(true);
       setError(null);
       
+      console.log('Starting camera...');
+      
       const mediaStream = await navigator.mediaDevices.getUserMedia({
         video: {
           width: { ideal: 1280 },
@@ -30,11 +32,22 @@ const CameraFeed = ({ className = '' }: CameraFeedProps) => {
         audio: false
       });
 
+      console.log('Camera stream obtained:', mediaStream);
+      
       setStream(mediaStream);
       setHasPermission(true);
       
       if (videoRef.current) {
         videoRef.current.srcObject = mediaStream;
+        console.log('Video element srcObject set');
+        
+        // Ensure video plays
+        videoRef.current.onloadedmetadata = () => {
+          console.log('Video metadata loaded, attempting to play');
+          videoRef.current?.play().catch(err => {
+            console.error('Error playing video:', err);
+          });
+        };
       }
     } catch (err) {
       console.error('Error accessing camera:', err);
@@ -52,14 +65,21 @@ const CameraFeed = ({ className = '' }: CameraFeedProps) => {
 
   const stopCamera = () => {
     if (stream) {
-      stream.getTracks().forEach(track => track.stop());
+      stream.getTracks().forEach(track => {
+        track.stop();
+        console.log('Camera track stopped');
+      });
       setStream(null);
     }
   };
 
   useEffect(() => {
+    console.log('CameraFeed component mounted');
     startCamera();
-    return () => stopCamera();
+    return () => {
+      console.log('CameraFeed component unmounting');
+      stopCamera();
+    };
   }, []);
 
   return (
@@ -75,13 +95,14 @@ const CameraFeed = ({ className = '' }: CameraFeedProps) => {
       </div>
 
       {/* Video Feed */}
-      {hasPermission && !error ? (
+      {hasPermission && !error && stream ? (
         <video
           ref={videoRef}
           autoPlay
           playsInline
           muted
           className="w-full h-full object-cover"
+          style={{ minHeight: '100%', minWidth: '100%' }}
         />
       ) : (
         <div className="w-full h-full flex flex-col items-center justify-center bg-gradient-to-br from-gray-50 to-gray-100">
@@ -112,7 +133,7 @@ const CameraFeed = ({ className = '' }: CameraFeedProps) => {
       )}
 
       {/* Live indicator */}
-      {hasPermission && (
+      {hasPermission && stream && (
         <div className="absolute top-6 right-6">
           <div className="bg-red-500 rounded-full px-3 py-1 flex items-center">
             <div className="w-2 h-2 bg-white rounded-full animate-pulse mr-2" />
