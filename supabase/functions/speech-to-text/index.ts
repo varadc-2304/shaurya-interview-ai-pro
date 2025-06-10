@@ -26,7 +26,7 @@ serve(async (req) => {
       throw new Error('ElevenLabs API key not configured');
     }
 
-    console.log('Fetching audio from URL to send as file...');
+    console.log('Fetching audio from URL...');
     
     // Fetch the audio file from the URL
     const audioResponse = await fetch(audioUrl);
@@ -38,14 +38,14 @@ serve(async (req) => {
     const audioBuffer = await audioResponse.arrayBuffer();
     console.log('Audio buffer size:', audioBuffer.byteLength);
 
-    // Create form data for ElevenLabs API
+    // Create form data for ElevenLabs API - using file upload approach
     const formData = new FormData();
     const audioBlob = new Blob([audioBuffer], { type: 'audio/webm' });
     formData.append('audio', audioBlob, 'recording.webm');
 
-    console.log('Sending request to ElevenLabs API with file upload...');
+    console.log('Sending request to ElevenLabs speech-to-text API...');
 
-    // Send to ElevenLabs speech-to-text API using file upload
+    // Send to ElevenLabs speech-to-text API
     const elevenLabsResponse = await fetch('https://api.elevenlabs.io/v1/speech-to-text', {
       method: 'POST',
       headers: {
@@ -58,16 +58,16 @@ serve(async (req) => {
 
     if (!elevenLabsResponse.ok) {
       const errorText = await elevenLabsResponse.text();
-      console.error('ElevenLabs API error:', errorText);
+      console.error('ElevenLabs API error response:', errorText);
       throw new Error(`ElevenLabs API error: ${elevenLabsResponse.status} - ${errorText}`);
     }
 
     const result = await elevenLabsResponse.json();
-    console.log('ElevenLabs response:', result);
+    console.log('ElevenLabs successful response:', result);
 
     // ElevenLabs returns the transcription in the 'text' field
     const transcribedText = result.text || '';
-    console.log('Transcribed text:', transcribedText);
+    console.log('Final transcribed text:', transcribedText);
 
     return new Response(
       JSON.stringify({ text: transcribedText }),
