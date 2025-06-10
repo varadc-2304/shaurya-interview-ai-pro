@@ -1,4 +1,3 @@
-
 import { useState, useEffect, useRef } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Brain } from "lucide-react";
@@ -355,48 +354,49 @@ const InterviewSession = ({ config, interviewId, userId, onEndInterview }: Inter
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-white flex flex-col">
-      {/* Minimal Header */}
-      <div className="flex-none py-6 px-8">
-        <div className="max-w-7xl mx-auto">
-          <div className="bg-white/95 backdrop-blur-xl rounded-2xl px-8 py-4 shadow-lg border border-gray-200">
-            <div className="text-center">
-              <h1 className="text-2xl font-bold text-gray-900 mb-2">AI Interview Session</h1>
-              <div className="flex items-center justify-center space-x-4 text-sm text-gray-600">
-                <span className="font-medium">{config.jobRole}</span>
-                <span className="w-1 h-1 bg-gray-400 rounded-full"></span>
-                <span className="font-medium">{config.domain}</span>
-                <span className="w-1 h-1 bg-gray-400 rounded-full"></span>
-                <Badge variant="secondary" className="text-xs bg-blue-50 text-blue-700 border-blue-200">
-                  {config.questionType}
-                </Badge>
+    <div className="h-screen bg-gradient-to-br from-gray-50 to-white flex flex-col overflow-hidden">
+      {/* Minimal Header with Question Number */}
+      <div className="flex-none py-3 px-6">
+        <div className="max-w-6xl mx-auto">
+          <div className="bg-white/95 backdrop-blur-xl rounded-xl px-6 py-3 shadow-lg border border-gray-200">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center space-x-4">
+                <h1 className="text-lg font-semibold text-gray-900">AI Interview</h1>
+                <div className="flex items-center space-x-3 text-sm text-gray-600">
+                  <span>{config.jobRole}</span>
+                  <span className="w-1 h-1 bg-gray-400 rounded-full"></span>
+                  <span>{config.domain}</span>
+                </div>
               </div>
+              <Badge variant="secondary" className="text-sm bg-blue-50 text-blue-700 border-blue-200 px-4 py-1">
+                Q{currentQuestionIndex + 1}/{totalQuestions}
+              </Badge>
             </div>
           </div>
         </div>
       </div>
 
-      {/* Main Content - Video Feeds */}
-      <div className="flex-1 flex items-center justify-center px-8 pb-40">
-        <div className="max-w-7xl w-full">
-          <div className="grid grid-cols-2 gap-12 h-[500px]">
+      {/* Main Content - Compact Video Feeds */}
+      <div className="flex-1 flex items-center justify-center px-6 pb-24">
+        <div className="max-w-6xl w-full">
+          <div className="grid grid-cols-2 gap-8 h-[360px]">
             {/* Left Side - User Camera */}
             <div className="flex items-center justify-center">
-              <CameraFeed className="w-full h-full max-w-2xl" />
+              <CameraFeed className="w-full h-full" />
             </div>
 
             {/* Right Side - AI Avatar */}
             <div className="flex items-center justify-center">
               <AIAvatar 
                 isSpeaking={isSpeaking} 
-                className="w-full h-full max-w-2xl" 
+                className="w-full h-full" 
               />
             </div>
           </div>
         </div>
       </div>
 
-      {/* Floating Controls - Fixed at bottom with proper spacing */}
+      {/* Floating Controls - Compact */}
       <div className="flex-none">
         <FloatingControls
           onSubmitResponse={handleEnhancedResponse}
@@ -404,10 +404,7 @@ const InterviewSession = ({ config, interviewId, userId, onEndInterview }: Inter
           onEndInterview={handleFinishInterview}
           isProcessing={isProcessing}
           disabled={isSpeaking}
-          currentQuestion={currentQuestionIndex + 1}
-          totalQuestions={questions.length}
           duration={duration}
-          progress={progress}
         />
       </div>
     </div>
