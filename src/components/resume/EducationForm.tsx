@@ -20,7 +20,7 @@ interface Education {
   field_of_study: string;
   start_date: string;
   end_date: string;
-  gpa: string;
+  gpa: number | null;
   description: string;
 }
 
@@ -59,7 +59,7 @@ const EducationForm = ({ userId }: EducationFormProps) => {
       field_of_study: '',
       start_date: '',
       end_date: '',
-      gpa: '',
+      gpa: null,
       description: ''
     }]);
   };
@@ -91,7 +91,11 @@ const EducationForm = ({ userId }: EducationFormProps) => {
 
   const updateEducation = (index: number, field: keyof Education, value: string) => {
     const newList = [...educationList];
-    newList[index] = { ...newList[index], [field]: value };
+    if (field === 'gpa') {
+      newList[index] = { ...newList[index], [field]: value ? parseFloat(value) : null };
+    } else {
+      newList[index] = { ...newList[index], [field]: value };
+    }
     setEducationList(newList);
   };
 
@@ -107,7 +111,7 @@ const EducationForm = ({ userId }: EducationFormProps) => {
           field_of_study: education.field_of_study,
           start_date: education.start_date || null,
           end_date: education.end_date || null,
-          gpa: education.gpa ? parseFloat(education.gpa) : null,
+          gpa: education.gpa,
           description: education.description
         };
 
@@ -192,7 +196,7 @@ const EducationForm = ({ userId }: EducationFormProps) => {
                 <div>
                   <Label>GPA</Label>
                   <Input
-                    value={education.gpa}
+                    value={education.gpa?.toString() || ''}
                     onChange={(e) => updateEducation(index, 'gpa', e.target.value)}
                     placeholder="3.8"
                     type="number"
