@@ -73,19 +73,22 @@ const SkillsForm = ({ userId }: SkillsFormProps) => {
 
     setIsLoading(true);
     try {
-      // Delete all existing skills for this user
-      await supabase.from('resume_skills').delete().eq('user_id', userId);
-      
-      // Insert new skills
-      const skillsData = skills.filter(skill => skill.skill_name.trim()).map(skill => ({
-        user_id: userId,
-        skill_name: skill.skill_name,
-        skill_category: skill.skill_category,
-        proficiency_level: skill.proficiency_level
-      }));
+      for (const skill of skills) {
+        // Skip empty skills
+        if (!skill.skill_name.trim()) continue;
 
-      if (skillsData.length > 0) {
-        await supabase.from('resume_skills').insert(skillsData);
+        const skillData = {
+          user_id: userId,
+          skill_name: skill.skill_name,
+          skill_category: skill.skill_category,
+          proficiency_level: skill.proficiency_level
+        };
+
+        if (skill.id) {
+          await supabase.from('resume_skills').update(skillData).eq('id', skill.id);
+        } else {
+          await supabase.from('resume_skills').insert(skillData);
+        }
       }
 
       toast({

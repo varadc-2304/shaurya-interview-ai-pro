@@ -69,9 +69,13 @@ const HobbiesForm = ({ userId }: HobbiesFormProps) => {
     setIsLoading(true);
     try {
       for (const hobby of hobbies) {
+        // Skip empty hobbies
+        if (!hobby.activity_name.trim()) continue;
+
         const hobbyData = {
           user_id: userId,
-          ...hobby
+          activity_name: hobby.activity_name,
+          description: hobby.description
         };
 
         if (hobby.id) {
