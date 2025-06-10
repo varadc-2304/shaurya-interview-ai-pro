@@ -69,23 +69,6 @@ const InterviewSession = ({ config, interviewId, userId, onEndInterview }: Inter
     try {
       setIsGeneratingQuestions(true);
       console.log("Generating questions with config:", config);
-
-      // Fetch user's resume summary for personalization
-      let resumeSummary = '';
-      try {
-        const { data: summaryData } = await supabase
-          .from('resume_summary')
-          .select('summary_text')
-          .eq('user_id', userId)
-          .single();
-        
-        if (summaryData?.summary_text) {
-          resumeSummary = summaryData.summary_text;
-          console.log("Found resume summary for personalization");
-        }
-      } catch (error) {
-        console.log("No resume summary found, proceeding without personalization");
-      }
       
       const { data, error } = await supabase.functions.invoke('generate-questions', {
         body: {
@@ -94,8 +77,7 @@ const InterviewSession = ({ config, interviewId, userId, onEndInterview }: Inter
           experienceLevel: config.experienceLevel,
           interviewType: config.questionType,
           additionalConstraints: config.additionalConstraints,
-          numQuestions: totalQuestions,
-          resumeSummary: resumeSummary // Include resume summary for personalization
+          numQuestions: totalQuestions
         }
       });
 

@@ -1,3 +1,4 @@
+
 import { useState } from "react";
 import Header from "@/components/Header";
 import LoginForm from "@/components/LoginForm";
@@ -43,20 +44,14 @@ const Index = () => {
         return;
       }
 
-      const userData = {
+      setUser({
         id: authData.id,
         email: authData.email,
         name: authData.name || authData.email.split('@')[0],
         role: authData.role
-      };
-
-      setUser(userData);
+      });
       setIsAuthenticated(true);
       setCurrentState('setup');
-      
-      // Store user data in localStorage for the Resume page
-      localStorage.setItem('currentUser', JSON.stringify(userData));
-      console.log('User data stored in localStorage:', userData);
       
       toast({
         title: "Welcome to Shaurya!",
@@ -78,11 +73,6 @@ const Index = () => {
     setCurrentState('login');
     setInterviewConfig(null);
     setInterviewId(null);
-    
-    // Clear user data from localStorage
-    localStorage.removeItem('currentUser');
-    console.log('User data cleared from localStorage');
-    
     toast({
       title: "Logged out",
       description: "You have been successfully logged out.",

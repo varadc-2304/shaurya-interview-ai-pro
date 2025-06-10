@@ -9,36 +9,6 @@ export type Json =
 export type Database = {
   public: {
     Tables: {
-      achievements: {
-        Row: {
-          achievement_title: string
-          created_at: string
-          date_achieved: string | null
-          description: string | null
-          id: string
-          issuing_organization: string | null
-          user_id: string
-        }
-        Insert: {
-          achievement_title: string
-          created_at?: string
-          date_achieved?: string | null
-          description?: string | null
-          id?: string
-          issuing_organization?: string | null
-          user_id: string
-        }
-        Update: {
-          achievement_title?: string
-          created_at?: string
-          date_achieved?: string | null
-          description?: string | null
-          id?: string
-          issuing_organization?: string | null
-          user_id?: string
-        }
-        Relationships: []
-      }
       articles: {
         Row: {
           content: string | null
@@ -566,72 +536,6 @@ export type Database = {
         }
         Relationships: []
       }
-      education: {
-        Row: {
-          created_at: string
-          degree: string
-          description: string | null
-          end_date: string | null
-          field_of_study: string | null
-          gpa: number | null
-          id: string
-          institution_name: string
-          start_date: string | null
-          updated_at: string
-          user_id: string
-        }
-        Insert: {
-          created_at?: string
-          degree: string
-          description?: string | null
-          end_date?: string | null
-          field_of_study?: string | null
-          gpa?: number | null
-          id?: string
-          institution_name: string
-          start_date?: string | null
-          updated_at?: string
-          user_id: string
-        }
-        Update: {
-          created_at?: string
-          degree?: string
-          description?: string | null
-          end_date?: string | null
-          field_of_study?: string | null
-          gpa?: number | null
-          id?: string
-          institution_name?: string
-          start_date?: string | null
-          updated_at?: string
-          user_id?: string
-        }
-        Relationships: []
-      }
-      hobbies_activities: {
-        Row: {
-          activity_name: string
-          created_at: string
-          description: string | null
-          id: string
-          user_id: string
-        }
-        Insert: {
-          activity_name: string
-          created_at?: string
-          description?: string | null
-          id?: string
-          user_id: string
-        }
-        Update: {
-          activity_name?: string
-          created_at?: string
-          description?: string | null
-          id?: string
-          user_id?: string
-        }
-        Relationships: []
-      }
       interview_questions: {
         Row: {
           created_at: string
@@ -945,84 +849,6 @@ export type Database = {
         }
         Relationships: []
       }
-      personal_info: {
-        Row: {
-          address: string | null
-          created_at: string
-          email: string | null
-          full_name: string | null
-          github_url: string | null
-          id: string
-          linkedin_url: string | null
-          phone: string | null
-          portfolio_url: string | null
-          updated_at: string
-          user_id: string
-        }
-        Insert: {
-          address?: string | null
-          created_at?: string
-          email?: string | null
-          full_name?: string | null
-          github_url?: string | null
-          id?: string
-          linkedin_url?: string | null
-          phone?: string | null
-          portfolio_url?: string | null
-          updated_at?: string
-          user_id: string
-        }
-        Update: {
-          address?: string | null
-          created_at?: string
-          email?: string | null
-          full_name?: string | null
-          github_url?: string | null
-          id?: string
-          linkedin_url?: string | null
-          phone?: string | null
-          portfolio_url?: string | null
-          updated_at?: string
-          user_id?: string
-        }
-        Relationships: []
-      }
-      positions_of_responsibility: {
-        Row: {
-          created_at: string
-          description: string | null
-          end_date: string | null
-          id: string
-          organization: string
-          position_title: string
-          start_date: string | null
-          updated_at: string
-          user_id: string
-        }
-        Insert: {
-          created_at?: string
-          description?: string | null
-          end_date?: string | null
-          id?: string
-          organization: string
-          position_title: string
-          start_date?: string | null
-          updated_at?: string
-          user_id: string
-        }
-        Update: {
-          created_at?: string
-          description?: string | null
-          end_date?: string | null
-          id?: string
-          organization?: string
-          position_title?: string
-          start_date?: string | null
-          updated_at?: string
-          user_id?: string
-        }
-        Relationships: []
-      }
       proctoring_sessions: {
         Row: {
           assessment_id: string
@@ -1141,48 +967,6 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
-      }
-      projects: {
-        Row: {
-          created_at: string
-          description: string | null
-          end_date: string | null
-          github_url: string | null
-          id: string
-          project_name: string
-          project_url: string | null
-          start_date: string | null
-          technologies_used: string[] | null
-          updated_at: string
-          user_id: string
-        }
-        Insert: {
-          created_at?: string
-          description?: string | null
-          end_date?: string | null
-          github_url?: string | null
-          id?: string
-          project_name: string
-          project_url?: string | null
-          start_date?: string | null
-          technologies_used?: string[] | null
-          updated_at?: string
-          user_id: string
-        }
-        Update: {
-          created_at?: string
-          description?: string | null
-          end_date?: string | null
-          github_url?: string | null
-          id?: string
-          project_name?: string
-          project_url?: string | null
-          start_date?: string | null
-          technologies_used?: string[] | null
-          updated_at?: string
-          user_id?: string
-        }
-        Relationships: []
       }
       question_submissions: {
         Row: {
@@ -1338,57 +1122,6 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
-      }
-      resume_skills: {
-        Row: {
-          created_at: string
-          id: string
-          proficiency_level: string | null
-          skill_category: string | null
-          skill_name: string
-          user_id: string
-        }
-        Insert: {
-          created_at?: string
-          id?: string
-          proficiency_level?: string | null
-          skill_category?: string | null
-          skill_name: string
-          user_id: string
-        }
-        Update: {
-          created_at?: string
-          id?: string
-          proficiency_level?: string | null
-          skill_category?: string | null
-          skill_name?: string
-          user_id?: string
-        }
-        Relationships: []
-      }
-      resume_summary: {
-        Row: {
-          created_at: string
-          id: string
-          summary_text: string
-          updated_at: string
-          user_id: string
-        }
-        Insert: {
-          created_at?: string
-          id?: string
-          summary_text: string
-          updated_at?: string
-          user_id: string
-        }
-        Update: {
-          created_at?: string
-          id?: string
-          summary_text?: string
-          updated_at?: string
-          user_id?: string
-        }
-        Relationships: []
       }
       submissions: {
         Row: {
@@ -1751,48 +1484,6 @@ export type Database = {
           prn?: string | null
           updated_at?: string | null
           username?: string | null
-        }
-        Relationships: []
-      }
-      work_experience: {
-        Row: {
-          company_name: string
-          created_at: string
-          description: string | null
-          end_date: string | null
-          id: string
-          is_current: boolean | null
-          location: string | null
-          position: string
-          start_date: string | null
-          updated_at: string
-          user_id: string
-        }
-        Insert: {
-          company_name: string
-          created_at?: string
-          description?: string | null
-          end_date?: string | null
-          id?: string
-          is_current?: boolean | null
-          location?: string | null
-          position: string
-          start_date?: string | null
-          updated_at?: string
-          user_id: string
-        }
-        Update: {
-          company_name?: string
-          created_at?: string
-          description?: string | null
-          end_date?: string | null
-          id?: string
-          is_current?: boolean | null
-          location?: string | null
-          position?: string
-          start_date?: string | null
-          updated_at?: string
-          user_id?: string
         }
         Relationships: []
       }
