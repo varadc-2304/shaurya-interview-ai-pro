@@ -75,7 +75,7 @@ const InterviewSession = ({ config, interviewId, userId, onEndInterview }: Inter
           jobRole: config.jobRole,
           domain: config.domain,
           experienceLevel: config.experienceLevel,
-          interviewType: config.questionType, // Fixed: was questionType, should be interviewType
+          interviewType: config.questionType,
           additionalConstraints: config.additionalConstraints,
           numQuestions: totalQuestions
         }
@@ -86,9 +86,10 @@ const InterviewSession = ({ config, interviewId, userId, onEndInterview }: Inter
       if (error) throw error;
 
       if (data?.questions) {
-        const questionList = data.questions.map((q: string, index: number) => ({
+        // Fix: Extract the 'question' property from each question object
+        const questionList = data.questions.map((q: any, index: number) => ({
           id: `q${index + 1}`,
-          text: q,
+          text: q.question, // Extract the 'question' property, not the whole object
           number: index + 1
         }));
         
