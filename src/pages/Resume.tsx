@@ -15,15 +15,39 @@ import PositionsForm from "@/components/resume/PositionsForm";
 import AchievementsForm from "@/components/resume/AchievementsForm";
 import HobbiesForm from "@/components/resume/HobbiesForm";
 
+interface User {
+  id: string;
+  email: string;
+  name: string;
+  role: string;
+}
+
 const Resume = () => {
-  const [currentUser, setCurrentUser] = useState<any>(null);
+  const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [resumeSummary, setResumeSummary] = useState<string>("");
   const [isGeneratingSummary, setIsGeneratingSummary] = useState(false);
   const { toast } = useToast();
 
   useEffect(() => {
-    getCurrentUser();
+    // Check if user data exists in localStorage (from the custom auth system)
+    const userData = localStorage.getItem('currentUser');
+    console.log('Checking localStorage for user data:', userData);
+    
+    if (userData) {
+      try {
+        const user = JSON.parse(userData);
+        console.log('Found user in localStorage:', user);
+        setCurrentUser(user);
+        setIsLoading(false);
+      } catch (error) {
+        console.error('Error parsing user data from localStorage:', error);
+        setIsLoading(false);
+      }
+    } else {
+      console.log('No user data found in localStorage');
+      setIsLoading(false);
+    }
   }, []);
 
   useEffect(() => {
@@ -31,27 +55,6 @@ const Resume = () => {
       fetchResumeSummary();
     }
   }, [currentUser]);
-
-  const getCurrentUser = async () => {
-    try {
-      const { data: { user }, error } = await supabase.auth.getUser();
-      if (error) {
-        console.error('Error getting user:', error);
-        toast({
-          title: "Authentication Error",
-          description: "Please log in to access your resume.",
-          variant: "destructive"
-        });
-      } else {
-        console.log('Current user:', user);
-        setCurrentUser(user);
-      }
-    } catch (error) {
-      console.error('Error in getCurrentUser:', error);
-    } finally {
-      setIsLoading(false);
-    }
-  };
 
   const fetchResumeSummary = async () => {
     if (!currentUser?.id) return;
@@ -120,7 +123,7 @@ const Resume = () => {
           <CardHeader>
             <CardTitle className="text-center">Authentication Required</CardTitle>
             <CardDescription className="text-center">
-              Please log in to access your resume builder.
+              Please log in to access your resume builder. <a href="/" className="text-primary hover:underline">Go to login</a>
             </CardDescription>
           </CardHeader>
         </Card>
