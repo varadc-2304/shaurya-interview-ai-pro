@@ -61,11 +61,11 @@ const CodeEditor = ({ onSave, initialCode = '', initialLanguage = 'javascript' }
           <span>Code Editor</span>
         </Button>
       </DialogTrigger>
-      <DialogContent className="max-w-4xl max-h-[80vh]">
+      <DialogContent className="max-w-2xl">
         <DialogHeader>
           <DialogTitle>Code Editor</DialogTitle>
           <DialogDescription>
-            Write or paste your code solution here. Select the appropriate programming language.
+            Write your code solution here. Select the appropriate programming language.
           </DialogDescription>
         </DialogHeader>
         
@@ -88,7 +88,7 @@ const CodeEditor = ({ onSave, initialCode = '', initialLanguage = 'javascript' }
           
           <div className="border rounded-lg overflow-hidden">
             <Editor
-              height="400px"
+              height="300px"
               language={language}
               value={code}
               onChange={handleEditorChange}
@@ -102,6 +102,9 @@ const CodeEditor = ({ onSave, initialCode = '', initialLanguage = 'javascript' }
                 scrollBeyondLastLine: false
               }}
             />
+          </div>
+          <div className="text-sm text-muted-foreground">
+            Language: {SUPPORTED_LANGUAGES.find(lang => lang.value === language)?.label}
           </div>
         </div>
 
