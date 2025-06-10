@@ -43,48 +43,64 @@ const CameraFeed = ({ className = '' }: CameraFeedProps) => {
         videoRef.current.srcObject = mediaStream;
         console.log('Video element srcObject set');
         
-        // Handle video loading and playing
-        videoRef.current.onloadedmetadata = () => {
-          console.log('Video metadata loaded, attempting to play');
-          if (videoRef.current) {
-            videoRef.current.play()
-              .then(() => {
-                console.log('Video playing successfully');
-                setIsVideoReady(true);
-              })
-              .catch(err => {
-                console.error('Error playing video:', err);
-                setError('Failed to play video stream');
-              });
-          }
-        };
-
-        // Additional event listeners for debugging
-        videoRef.current.oncanplay = () => {
-          console.log('Video can start playing');
-        };
-
-        videoRef.current.onplay = () => {
-          console.log('Video started playing');
+        // Set up event listeners before attempting to play
+        const videoElement = videoRef.current;
+        
+        const handleCanPlay = () => {
+          console.log('Video can play - setting ready state');
           setIsVideoReady(true);
+          setIsLoading(false);
         };
 
-        videoRef.current.onerror = (e) => {
+        const handleLoadedData = () => {
+          console.log('Video data loaded');
+          videoElement.play().catch(err => {
+            console.error('Error playing video:', err);
+            setError('Failed to play video stream');
+            setIsLoading(false);
+          });
+        };
+
+        const handleError = (e: Event) => {
           console.error('Video element error:', e);
           setError('Video element error');
+          setIsLoading(false);
         };
+
+        // Add event listeners
+        videoElement.addEventListener('canplay', handleCanPlay);
+        videoElement.addEventListener('loadeddata', handleLoadedData);
+        videoElement.addEventListener('error', handleError);
+
+        // Cleanup function for event listeners
+        const cleanup = () => {
+          videoElement.removeEventListener('canplay', handleCanPlay);
+          videoElement.removeEventListener('loadeddata', handleLoadedData);
+          videoElement.removeEventListener('error', handleError);
+        };
+
+        // Store cleanup function for later use
+        videoElement.dataset.cleanup = 'true';
+        
+        // Set a timeout fallback in case events don't fire
+        setTimeout(() => {
+          if (mediaStream.active && !isVideoReady) {
+            console.log('Fallback: forcing video ready state');
+            setIsVideoReady(true);
+            setIsLoading(false);
+          }
+        }, 3000);
       }
     } catch (err) {
       console.error('Error accessing camera:', err);
       setHasPermission(false);
       setError('Camera access denied or unavailable');
+      setIsLoading(false);
       toast({
         title: "Camera Error",
         description: "Please allow camera access to continue with the interview.",
         variant: "destructive"
       });
-    } finally {
-      setIsLoading(false);
     }
   };
 
@@ -124,25 +140,23 @@ const CameraFeed = ({ className = '' }: CameraFeedProps) => {
       </div>
 
       {/* Video Feed */}
-      {hasPermission && !error && stream && (
-        <video
-          ref={videoRef}
-          autoPlay
-          playsInline
-          muted
-          className={`w-full h-full object-cover transition-opacity duration-300 ${
-            isVideoReady ? 'opacity-100' : 'opacity-0'
-          }`}
-          style={{ 
-            minHeight: '100%', 
-            minWidth: '100%',
-            transform: 'scaleX(-1)' // Mirror the video for better user experience
-          }}
-        />
-      )}
+      <video
+        ref={videoRef}
+        autoPlay
+        playsInline
+        muted
+        className={`w-full h-full object-cover transition-opacity duration-500 ${
+          isVideoReady && stream && !error ? 'opacity-100' : 'opacity-0'
+        }`}
+        style={{ 
+          minHeight: '100%', 
+          minWidth: '100%',
+          transform: 'scaleX(-1)' // Mirror the video for better user experience
+        }}
+      />
 
       {/* Fallback/Loading States */}
-      {(!hasPermission || error || !stream || !isVideoReady) && (
+      {(!isVideoReady || !stream || error) && (
         <div className="absolute inset-0 w-full h-full flex flex-col items-center justify-center bg-gradient-to-br from-gray-50 to-gray-100">
           {isLoading ? (
             <div className="text-center">
@@ -171,7 +185,7 @@ const CameraFeed = ({ className = '' }: CameraFeedProps) => {
       )}
 
       {/* Live indicator */}
-      {hasPermission && stream && isVideoReady && (
+      {isVideoReady && stream && !error && (
         <div className="absolute top-6 right-6">
           <div className="bg-red-500 rounded-full px-3 py-1 flex items-center">
             <div className="w-2 h-2 bg-white rounded-full animate-pulse mr-2" />
