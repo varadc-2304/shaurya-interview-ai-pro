@@ -1,14 +1,16 @@
-
 import { useState, useRef, useEffect } from 'react';
 import { Camera, CameraOff, User } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
+import FacialAnalysisOverlay from './FacialAnalysisOverlay';
 
 interface CameraFeedProps {
   className?: string;
+  onFacialAnalysis?: (data: any) => void;
+  isAnalyzing?: boolean;
 }
 
-const CameraFeed = ({ className = '' }: CameraFeedProps) => {
+const CameraFeed = ({ className = '', onFacialAnalysis, isAnalyzing = false }: CameraFeedProps) => {
   const [stream, setStream] = useState<MediaStream | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [hasPermission, setHasPermission] = useState<boolean | null>(null);
@@ -43,7 +45,6 @@ const CameraFeed = ({ className = '' }: CameraFeedProps) => {
         videoRef.current.srcObject = mediaStream;
         console.log('Video element srcObject set');
         
-        // Set up event listeners before attempting to play
         const videoElement = videoRef.current;
         
         const handleCanPlay = () => {
@@ -67,22 +68,18 @@ const CameraFeed = ({ className = '' }: CameraFeedProps) => {
           setIsLoading(false);
         };
 
-        // Add event listeners
         videoElement.addEventListener('canplay', handleCanPlay);
         videoElement.addEventListener('loadeddata', handleLoadedData);
         videoElement.addEventListener('error', handleError);
 
-        // Cleanup function for event listeners
         const cleanup = () => {
           videoElement.removeEventListener('canplay', handleCanPlay);
           videoElement.removeEventListener('loadeddata', handleLoadedData);
           videoElement.removeEventListener('error', handleError);
         };
 
-        // Store cleanup function for later use
         videoElement.dataset.cleanup = 'true';
         
-        // Set a timeout fallback in case events don't fire
         setTimeout(() => {
           if (mediaStream.active && !isVideoReady) {
             console.log('Fallback: forcing video ready state');
@@ -129,6 +126,15 @@ const CameraFeed = ({ className = '' }: CameraFeedProps) => {
 
   return (
     <div className={`relative bg-gray-900 rounded-3xl overflow-hidden shadow-xl border border-gray-200 ${className}`}>
+      {/* Facial Analysis Overlay */}
+      {isVideoReady && videoRef.current && (
+        <FacialAnalysisOverlay
+          videoElement={videoRef.current}
+          isRecording={isAnalyzing}
+          onAnalysisData={onFacialAnalysis}
+        />
+      )}
+
       {/* Minimal Header */}
       <div className="absolute top-6 left-6 z-10">
         <div className="bg-white/90 backdrop-blur-sm rounded-full px-4 py-2 shadow-sm">

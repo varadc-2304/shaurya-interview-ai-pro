@@ -1,14 +1,17 @@
 
 import { useState, useRef } from 'react';
+import { FacialAnalysisData } from './useFacialAnalysis';
 
 export interface EnhancedResponse {
   audioBlob: Blob | null;
   textContent: string;
   codeContent: string;
   codeLanguage: string;
+  facialAnalysis: FacialAnalysisData | null;
   hasAudio: boolean;
   hasText: boolean;
   hasCode: boolean;
+  hasFacialAnalysis: boolean;
 }
 
 export const useEnhancedResponse = () => {
@@ -17,9 +20,11 @@ export const useEnhancedResponse = () => {
     textContent: '',
     codeContent: '',
     codeLanguage: 'javascript',
+    facialAnalysis: null,
     hasAudio: false,
     hasText: false,
-    hasCode: false
+    hasCode: false,
+    hasFacialAnalysis: false,
   });
 
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
@@ -80,15 +85,25 @@ export const useEnhancedResponse = () => {
     }));
   };
 
+  const updateFacialAnalysis = (facialData: FacialAnalysisData) => {
+    setResponse(prev => ({
+      ...prev,
+      facialAnalysis: facialData,
+      hasFacialAnalysis: facialData.sample_count > 0
+    }));
+  };
+
   const resetResponse = () => {
     setResponse({
       audioBlob: null,
       textContent: '',
       codeContent: '',
       codeLanguage: 'javascript',
+      facialAnalysis: null,
       hasAudio: false,
       hasText: false,
-      hasCode: false
+      hasCode: false,
+      hasFacialAnalysis: false,
     });
   };
 
@@ -101,6 +116,7 @@ export const useEnhancedResponse = () => {
     stopRecording,
     updateTextContent,
     updateCodeContent,
+    updateFacialAnalysis,
     resetResponse,
     hasAnyContent
   };
