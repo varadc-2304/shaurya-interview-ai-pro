@@ -1,4 +1,3 @@
-
 import { useState, useEffect, useRef } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Brain } from "lucide-react";
@@ -8,7 +7,6 @@ import { supabase } from "@/integrations/supabase/client";
 import CameraFeed from './CameraFeed';
 import AIAvatar from './AIAvatar';
 import FloatingControls from './FloatingControls';
-import Header from './Header';
 
 interface InterviewSessionProps {
   config: InterviewConfig;
@@ -36,16 +34,6 @@ const InterviewSession = ({ config, interviewId, userId, onEndInterview }: Inter
   const audioRef = useRef<HTMLAudioElement | null>(null);
 
   const totalQuestions = 5;
-
-  // Hide the header during interview
-  useEffect(() => {
-    // Hide body overflow to prevent scrolling during interview
-    document.body.style.overflow = 'hidden';
-    
-    return () => {
-      document.body.style.overflow = 'unset';
-    };
-  }, []);
 
   useEffect(() => {
     generateQuestions();
@@ -336,99 +324,90 @@ const InterviewSession = ({ config, interviewId, userId, onEndInterview }: Inter
 
   if (isGeneratingQuestions) {
     return (
-      <>
-        <Header isAuthenticated={true} onLogin={() => {}} onLogout={() => {}} isVisible={false} />
-        <div className="min-h-screen bg-gradient-to-br from-gray-50 to-white flex items-center justify-center">
-          <div className="text-center bg-white rounded-3xl p-16 shadow-xl border border-gray-100 max-w-md">
-            <Brain className="h-20 w-20 mx-auto mb-8 text-blue-600 animate-pulse" />
-            <h2 className="text-3xl font-bold mb-4 text-gray-900">Preparing Your Interview</h2>
-            <p className="text-gray-600 text-lg mb-8">Our AI is generating personalized questions...</p>
-            <div className="space-y-3">
-              <Badge variant="secondary" className="px-6 py-2 text-sm bg-blue-50 text-blue-700 border-blue-200">
-                {config.jobRole}
-              </Badge>
-              <Badge variant="secondary" className="px-6 py-2 text-sm bg-blue-50 text-blue-700 border-blue-200">
-                {config.domain}
-              </Badge>
-            </div>
+      <div className="min-h-screen bg-gradient-to-br from-gray-50 to-white flex items-center justify-center">
+        <div className="text-center bg-white rounded-3xl p-16 shadow-xl border border-gray-100 max-w-md">
+          <Brain className="h-20 w-20 mx-auto mb-8 text-blue-600 animate-pulse" />
+          <h2 className="text-3xl font-bold mb-4 text-gray-900">Preparing Your Interview</h2>
+          <p className="text-gray-600 text-lg mb-8">Our AI is generating personalized questions...</p>
+          <div className="space-y-3">
+            <Badge variant="secondary" className="px-6 py-2 text-sm bg-blue-50 text-blue-700 border-blue-200">
+              {config.jobRole}
+            </Badge>
+            <Badge variant="secondary" className="px-6 py-2 text-sm bg-blue-50 text-blue-700 border-blue-200">
+              {config.domain}
+            </Badge>
           </div>
         </div>
-      </>
+      </div>
     );
   }
 
   if (questions.length === 0) {
     return (
-      <>
-        <Header isAuthenticated={true} onLogin={() => {}} onLogout={() => {}} isVisible={false} />
-        <div className="min-h-screen bg-gradient-to-br from-gray-50 to-white flex items-center justify-center">
-          <div className="text-center bg-white rounded-3xl p-16 shadow-xl border border-gray-100 max-w-md">
-            <h2 className="text-2xl font-bold mb-4 text-red-600">Error</h2>
-            <p className="text-gray-600">Failed to generate questions. Please try again.</p>
-          </div>
+      <div className="min-h-screen bg-gradient-to-br from-gray-50 to-white flex items-center justify-center">
+        <div className="text-center bg-white rounded-3xl p-16 shadow-xl border border-gray-100 max-w-md">
+          <h2 className="text-2xl font-bold mb-4 text-red-600">Error</h2>
+          <p className="text-gray-600">Failed to generate questions. Please try again.</p>
         </div>
-      </>
+      </div>
     );
   }
 
   return (
-    <>
-      <Header isAuthenticated={true} onLogin={() => {}} onLogout={() => {}} isVisible={false} />
-      <div className="h-screen bg-gradient-to-br from-gray-50 to-white flex flex-col overflow-hidden">
-        {/* Compact Header */}
-        <div className="flex-none py-2 px-4">
-          <div className="max-w-6xl mx-auto">
-            <div className="bg-white/95 backdrop-blur-xl rounded-lg px-4 py-2 shadow-md border border-gray-200">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center space-x-3">
-                  <h1 className="text-base font-semibold text-gray-900">AI Interview</h1>
-                  <div className="flex items-center space-x-2 text-xs text-gray-600">
-                    <span>{config.jobRole}</span>
-                    <span className="w-1 h-1 bg-gray-400 rounded-full"></span>
-                    <span>{config.domain}</span>
-                  </div>
+    <div className="h-screen bg-gradient-to-br from-gray-50 to-white flex flex-col overflow-hidden">
+      {/* Minimal Header with Question Number */}
+      <div className="flex-none py-3 px-6">
+        <div className="max-w-6xl mx-auto">
+          <div className="bg-white/95 backdrop-blur-xl rounded-xl px-6 py-3 shadow-lg border border-gray-200">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center space-x-4">
+                <h1 className="text-lg font-semibold text-gray-900">AI Interview</h1>
+                <div className="flex items-center space-x-3 text-sm text-gray-600">
+                  <span>{config.jobRole}</span>
+                  <span className="w-1 h-1 bg-gray-400 rounded-full"></span>
+                  <span>{config.domain}</span>
                 </div>
-                <Badge variant="secondary" className="text-xs bg-blue-50 text-blue-700 border-blue-200 px-3 py-1">
-                  Q{currentQuestionIndex + 1}/{totalQuestions}
-                </Badge>
               </div>
+              <Badge variant="secondary" className="text-sm bg-blue-50 text-blue-700 border-blue-200 px-4 py-1">
+                Q{currentQuestionIndex + 1}/{totalQuestions}
+              </Badge>
             </div>
           </div>
-        </div>
-
-        {/* Main Content */}
-        <div className="flex-1 flex items-center justify-center px-4 pb-20">
-          <div className="max-w-5xl w-full">
-            <div className="grid grid-cols-2 gap-6 h-[300px]">
-              {/* User Camera */}
-              <div className="flex items-center justify-center">
-                <CameraFeed className="w-full h-full rounded-lg" />
-              </div>
-
-              {/* AI Avatar */}
-              <div className="flex items-center justify-center">
-                <AIAvatar 
-                  isSpeaking={isSpeaking} 
-                  className="w-full h-full rounded-lg" 
-                />
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* Floating Controls */}
-        <div className="flex-none">
-          <FloatingControls
-            onSubmitResponse={handleEnhancedResponse}
-            onNextQuestion={handleNextQuestion}
-            onEndInterview={handleFinishInterview}
-            isProcessing={isProcessing}
-            disabled={isSpeaking}
-            duration={duration}
-          />
         </div>
       </div>
-    </>
+
+      {/* Main Content - Compact Video Feeds */}
+      <div className="flex-1 flex items-center justify-center px-6 pb-24">
+        <div className="max-w-6xl w-full">
+          <div className="grid grid-cols-2 gap-8 h-[360px]">
+            {/* Left Side - User Camera */}
+            <div className="flex items-center justify-center">
+              <CameraFeed className="w-full h-full" />
+            </div>
+
+            {/* Right Side - AI Avatar */}
+            <div className="flex items-center justify-center">
+              <AIAvatar 
+                isSpeaking={isSpeaking} 
+                className="w-full h-full" 
+              />
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Floating Controls - Compact */}
+      <div className="flex-none">
+        <FloatingControls
+          onSubmitResponse={handleEnhancedResponse}
+          onNextQuestion={handleNextQuestion}
+          onEndInterview={handleFinishInterview}
+          isProcessing={isProcessing}
+          disabled={isSpeaking}
+          duration={duration}
+        />
+      </div>
+    </div>
   );
 };
 

@@ -18,7 +18,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { Code2 } from 'lucide-react';
+import { Code } from 'lucide-react';
 
 interface CodeEditorProps {
   onSave: (code: string, language: string) => void;
@@ -57,7 +57,7 @@ const CodeEditor = ({ onSave, initialCode = '', initialLanguage = 'javascript' }
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
         <Button variant="outline" className="flex items-center space-x-2">
-          <Code2 className="h-4 w-4" />
+          <Code className="h-4 w-4" />
           <span>Code Editor</span>
         </Button>
       </DialogTrigger>

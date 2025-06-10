@@ -7,14 +7,9 @@ interface HeaderProps {
   onLogin: () => void;
   onLogout: () => void;
   onNavigateToResume?: () => void;
-  isVisible?: boolean;
 }
 
-const Header = ({ isAuthenticated, onLogin, onLogout, onNavigateToResume, isVisible = true }: HeaderProps) => {
-  if (!isVisible) {
-    return null;
-  }
-
+const Header = ({ isAuthenticated, onLogin, onLogout, onNavigateToResume }: HeaderProps) => {
   return (
     <header className="border-b border-border bg-white/80 backdrop-blur-sm sticky top-0 z-50">
       <div className="container mx-auto px-6 py-4">
