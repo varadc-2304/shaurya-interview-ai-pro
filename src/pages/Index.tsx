@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import Header from "@/components/Header";
 import LoginForm from "@/components/LoginForm";
@@ -161,12 +160,15 @@ const Index = () => {
 
   return (
     <div className="min-h-screen bg-background">
-      <Header 
-        isAuthenticated={isAuthenticated}
-        onLogin={() => setCurrentState('login')}
-        onLogout={handleLogout}
-        onNavigateToResume={handleNavigateToResume}
-      />
+      {/* Only show Header when NOT in interview state */}
+      {currentState !== 'interview' && (
+        <Header 
+          isAuthenticated={isAuthenticated}
+          onLogin={() => setCurrentState('login')}
+          onLogout={handleLogout}
+          onNavigateToResume={handleNavigateToResume}
+        />
+      )}
       
       {currentState === 'setup' && (
         <InterviewSetup onStartInterview={handleStartInterview} />
