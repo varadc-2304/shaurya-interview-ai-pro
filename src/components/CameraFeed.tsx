@@ -13,6 +13,7 @@ const CameraFeed = ({ className = '' }: CameraFeedProps) => {
   const [isLoading, setIsLoading] = useState(false);
   const [hasPermission, setHasPermission] = useState<boolean | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [isVideoReady, setIsVideoReady] = useState(false);
   const videoRef = useRef<HTMLVideoElement>(null);
   const { toast } = useToast();
 
@@ -25,8 +26,8 @@ const CameraFeed = ({ className = '' }: CameraFeedProps) => {
       
       const mediaStream = await navigator.mediaDevices.getUserMedia({
         video: {
-          width: { ideal: 1280 },
-          height: { ideal: 720 },
+          width: { ideal: 1280, min: 640 },
+          height: { ideal: 720, min: 480 },
           facingMode: 'user'
         },
         audio: false
@@ -41,12 +42,26 @@ const CameraFeed = ({ className = '' }: CameraFeedProps) => {
         videoRef.current.srcObject = mediaStream;
         console.log('Video element srcObject set');
         
-        // Ensure video plays
+        // Wait for video metadata to load
         videoRef.current.onloadedmetadata = () => {
-          console.log('Video metadata loaded, attempting to play');
-          videoRef.current?.play().catch(err => {
-            console.error('Error playing video:', err);
-          });
+          console.log('Video metadata loaded');
+          setIsVideoReady(true);
+          
+          // Ensure video plays
+          if (videoRef.current) {
+            videoRef.current.play().then(() => {
+              console.log('Video playing successfully');
+            }).catch(err => {
+              console.error('Error playing video:', err);
+              setError('Failed to start video playback');
+            });
+          }
+        };
+
+        // Handle video errors
+        videoRef.current.onerror = (e) => {
+          console.error('Video element error:', e);
+          setError('Video playback error');
         };
       }
     } catch (err) {
@@ -70,6 +85,7 @@ const CameraFeed = ({ className = '' }: CameraFeedProps) => {
         console.log('Camera track stopped');
       });
       setStream(null);
+      setIsVideoReady(false);
     }
   };
 
@@ -95,14 +111,18 @@ const CameraFeed = ({ className = '' }: CameraFeedProps) => {
       </div>
 
       {/* Video Feed */}
-      {hasPermission && !error && stream ? (
+      {hasPermission && !error && stream && isVideoReady ? (
         <video
           ref={videoRef}
           autoPlay
           playsInline
           muted
           className="w-full h-full object-cover"
-          style={{ minHeight: '100%', minWidth: '100%' }}
+          style={{ 
+            minHeight: '100%', 
+            minWidth: '100%',
+            transform: 'scaleX(-1)' // Mirror the video for better user experience
+          }}
         />
       ) : (
         <div className="w-full h-full flex flex-col items-center justify-center bg-gradient-to-br from-gray-50 to-gray-100">
@@ -110,11 +130,13 @@ const CameraFeed = ({ className = '' }: CameraFeedProps) => {
             <div className="text-center">
               <Camera className="h-16 w-16 text-gray-300 mx-auto mb-6 animate-pulse" />
               <p className="text-gray-500 text-lg font-medium">Starting camera...</p>
+              <p className="text-gray-400 text-sm mt-2">Please allow camera access</p>
             </div>
           ) : error ? (
             <div className="text-center px-8">
               <CameraOff className="h-16 w-16 text-red-400 mx-auto mb-6" />
               <p className="text-red-500 mb-6 text-lg font-medium">Camera not available</p>
+              <p className="text-red-400 text-sm mb-4">{error}</p>
               <Button 
                 onClick={startCamera} 
                 variant="outline" 
@@ -133,7 +155,7 @@ const CameraFeed = ({ className = '' }: CameraFeedProps) => {
       )}
 
       {/* Live indicator */}
-      {hasPermission && stream && (
+      {hasPermission && stream && isVideoReady && (
         <div className="absolute top-6 right-6">
           <div className="bg-red-500 rounded-full px-3 py-1 flex items-center">
             <div className="w-2 h-2 bg-white rounded-full animate-pulse mr-2" />

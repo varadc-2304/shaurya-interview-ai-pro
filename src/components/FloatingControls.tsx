@@ -162,12 +162,17 @@ const FloatingControls = ({
               )}
             </Button>
 
-            {/* Next Question */}
+            {/* Next Question - Disabled when audio is playing */}
             <Button
               onClick={onNextQuestion}
               variant="outline"
-              disabled={isProcessing}
-              className="w-12 h-12 rounded-full"
+              disabled={isProcessing || disabled}
+              className={`w-12 h-12 rounded-full ${
+                disabled 
+                  ? 'opacity-50 cursor-not-allowed' 
+                  : 'hover:bg-gray-50'
+              }`}
+              title={disabled ? "Please wait for the question to finish" : "Next question"}
             >
               <SkipForward className="h-4 w-4" />
             </Button>
