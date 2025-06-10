@@ -32,7 +32,6 @@ const InterviewSession = ({ config, interviewId, userId, onEndInterview }: Inter
   const [duration, setDuration] = useState(0);
   const [isProcessing, setIsProcessing] = useState(false);
   const [isGeneratingQuestions, setIsGeneratingQuestions] = useState(true);
-  const [currentFacialData, setCurrentFacialData] = useState<any>(null);
   
   const { toast } = useToast();
   const audioRef = useRef<HTMLAudioElement | null>(null);
@@ -69,7 +68,7 @@ const InterviewSession = ({ config, interviewId, userId, onEndInterview }: Inter
           interviewType: config.questionType,
           additionalConstraints: config.additionalConstraints,
           numQuestions: totalQuestions,
-          userId: userId
+          userId: userId // Pass userId for resume personalization
         }
       });
 
@@ -89,6 +88,7 @@ const InterviewSession = ({ config, interviewId, userId, onEndInterview }: Inter
         
         setQuestions(questionList);
         
+        // Log if questions were personalized
         if (data.resumePersonalized) {
           console.log("Questions were personalized based on user's resume");
           toast({
@@ -97,6 +97,7 @@ const InterviewSession = ({ config, interviewId, userId, onEndInterview }: Inter
           });
         }
         
+        // Store questions in database
         for (const question of questionList) {
           await supabase.from('interview_questions').insert({
             interview_id: interviewId,
@@ -105,6 +106,7 @@ const InterviewSession = ({ config, interviewId, userId, onEndInterview }: Inter
           });
         }
         
+        // Read out first question
         if (questionList.length > 0) {
           await playQuestion(questionList[0].text);
         }
@@ -166,7 +168,6 @@ const InterviewSession = ({ config, interviewId, userId, onEndInterview }: Inter
     textContent: string;
     codeContent: string;
     codeLanguage: string;
-    facialAnalysis?: any;
   }) => {
     try {
       setIsProcessing(true);
@@ -174,12 +175,15 @@ const InterviewSession = ({ config, interviewId, userId, onEndInterview }: Inter
       
       let transcribedText = '';
       
+      // Process audio if provided
       if (response.audioBlob) {
         console.log('Processing audio, size:', response.audioBlob.size);
         
+        // Create unique filename
         const fileName = `interview_${interviewId}_q${currentQuestionIndex + 1}_${Date.now()}.webm`;
         console.log('Uploading to storage with filename:', fileName);
 
+        // Upload to Supabase storage
         const { data: uploadData, error: uploadError } = await supabase.storage
           .from('audio_files')
           .upload(fileName, response.audioBlob, {
@@ -193,12 +197,14 @@ const InterviewSession = ({ config, interviewId, userId, onEndInterview }: Inter
 
         console.log('Upload successful:', uploadData);
 
+        // Get public URL
         const { data: { publicUrl } } = supabase.storage
           .from('audio_files')
           .getPublicUrl(fileName);
 
         console.log('Public URL obtained:', publicUrl);
 
+        // Send URL to speech-to-text function
         console.log('Sending to speech-to-text function...');
         const { data: transcriptionData, error: transcriptionError } = await supabase.functions.invoke('speech-to-text', {
           body: { audioUrl: publicUrl }
@@ -212,11 +218,13 @@ const InterviewSession = ({ config, interviewId, userId, onEndInterview }: Inter
         console.log('Transcription result:', transcriptionData);
         transcribedText = transcriptionData?.text || '';
 
+        // Clean up the uploaded file after processing
         await supabase.storage
           .from('audio_files')
           .remove([fileName]);
       }
 
+      // Combine all response components
       const combinedResponse = [
         transcribedText && `Speech: ${transcribedText}`,
         response.textContent && `Text: ${response.textContent}`,
@@ -233,25 +241,22 @@ const InterviewSession = ({ config, interviewId, userId, onEndInterview }: Inter
       }
 
       console.log('Combined response:', combinedResponse);
-      console.log('Facial analysis data:', currentFacialData);
 
+      // Evaluate combined response
       const currentQuestion = questions[currentQuestionIndex];
-      await evaluateResponse(currentQuestion, combinedResponse, currentFacialData);
+      await evaluateResponse(currentQuestion, combinedResponse);
       
+      // Update interview question with all response components
       await supabase
         .from('interview_questions')
         .update({
           user_response: transcribedText,
           user_text_response: response.textContent,
           user_code_response: response.codeContent,
-          response_language: response.codeContent ? response.codeLanguage : null,
-          facial_analysis: currentFacialData
+          response_language: response.codeContent ? response.codeLanguage : null
         })
         .eq('interview_id', interviewId)
         .eq('question_number', currentQuestionIndex + 1);
-
-      // Reset facial data for next question
-      setCurrentFacialData(null);
 
       toast({
         title: "Response Submitted",
@@ -270,20 +275,17 @@ const InterviewSession = ({ config, interviewId, userId, onEndInterview }: Inter
     }
   };
 
-  const evaluateResponse = async (question: Question, userResponse: string, facialData?: any) => {
+  const evaluateResponse = async (question: Question, userResponse: string) => {
     try {
       console.log('Evaluating response for question:', question.text);
       console.log('User response:', userResponse);
-      console.log('Facial analysis data:', facialData);
       
       const { data, error } = await supabase.functions.invoke('evaluate-response', {
         body: {
           question: question.text,
           answer: userResponse,
           jobRole: config.jobRole,
-          domain: config.domain,
-          experienceLevel: config.experienceLevel,
-          facialAnalysis: facialData
+          domain: config.domain
         }
       });
 
@@ -291,6 +293,7 @@ const InterviewSession = ({ config, interviewId, userId, onEndInterview }: Inter
 
       console.log('Evaluation result:', data);
 
+      // Update database with evaluation
       await supabase
         .from('interview_questions')
         .update({
@@ -307,11 +310,6 @@ const InterviewSession = ({ config, interviewId, userId, onEndInterview }: Inter
     }
   };
 
-  const handleFacialAnalysis = (facialData: any) => {
-    console.log('Received facial analysis data:', facialData);
-    setCurrentFacialData(facialData);
-  };
-
   const handleNextQuestion = async () => {
     if (currentQuestionIndex < questions.length - 1) {
       const nextIndex = currentQuestionIndex + 1;
@@ -326,6 +324,7 @@ const InterviewSession = ({ config, interviewId, userId, onEndInterview }: Inter
     try {
       console.log('Finishing interview...');
       
+      // Update interview status
       await supabase
         .from('interviews')
         .update({
@@ -373,6 +372,7 @@ const InterviewSession = ({ config, interviewId, userId, onEndInterview }: Inter
 
   return (
     <div className="h-screen bg-gradient-to-br from-gray-50 to-white flex flex-col overflow-hidden">
+      {/* Minimal Header with Question Number */}
       <div className="flex-none py-3 px-6">
         <div className="max-w-6xl mx-auto">
           <div className="bg-white/95 backdrop-blur-xl rounded-xl px-6 py-3 shadow-lg border border-gray-200">
@@ -393,17 +393,16 @@ const InterviewSession = ({ config, interviewId, userId, onEndInterview }: Inter
         </div>
       </div>
 
+      {/* Main Content - Compact Video Feeds */}
       <div className="flex-1 flex items-center justify-center px-6 pb-24">
         <div className="max-w-6xl w-full">
           <div className="grid grid-cols-2 gap-8 h-[360px]">
+            {/* Left Side - User Camera */}
             <div className="flex items-center justify-center">
-              <CameraFeed 
-                className="w-full h-full" 
-                onFacialAnalysis={handleFacialAnalysis}
-                isAnalyzing={!isProcessing && !isSpeaking}
-              />
+              <CameraFeed className="w-full h-full" />
             </div>
 
+            {/* Right Side - AI Avatar */}
             <div className="flex items-center justify-center">
               <AIAvatar 
                 isSpeaking={isSpeaking} 
@@ -414,6 +413,7 @@ const InterviewSession = ({ config, interviewId, userId, onEndInterview }: Inter
         </div>
       </div>
 
+      {/* Floating Controls - Compact */}
       <div className="flex-none">
         <FloatingControls
           onSubmitResponse={handleEnhancedResponse}

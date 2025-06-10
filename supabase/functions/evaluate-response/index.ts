@@ -23,16 +23,9 @@ serve(async (req) => {
       }
     );
 
-    const { question, answer, jobRole, domain, experienceLevel = 'entry', facialAnalysis } = await req.json();
+    const { question, answer, jobRole, domain, experienceLevel = 'entry' } = await req.json();
 
-    console.log('Evaluating response:', { 
-      question: question.substring(0, 100), 
-      answer: answer.substring(0, 100), 
-      jobRole, 
-      domain, 
-      experienceLevel,
-      hasFacialAnalysis: !!facialAnalysis 
-    });
+    console.log('Evaluating response:', { question: question.substring(0, 100), answer: answer.substring(0, 100), jobRole, domain, experienceLevel });
 
     if (!question || !answer || !jobRole || !domain) {
       throw new Error('Missing required fields: question, answer, jobRole, domain');
@@ -43,12 +36,12 @@ serve(async (req) => {
       throw new Error('Gemini API key not configured');
     }
 
-    // Enhanced evaluation prompt with facial analysis integration
+    // Enhanced evaluation prompt with comprehensive scoring criteria
     const evaluationPrompt = `
 You are an expert interview evaluator with deep knowledge in ${domain} and experience in hiring for ${jobRole} positions. 
 
 **EVALUATION TASK:**
-Evaluate the candidate's response to the following interview question with comprehensive scoring across multiple dimensions, including non-verbal communication analysis.
+Evaluate the candidate's response to the following interview question with comprehensive scoring across multiple dimensions.
 
 **QUESTION:** ${question}
 
@@ -59,63 +52,33 @@ Evaluate the candidate's response to the following interview question with compr
 - Domain: ${domain}
 - Experience Level: ${experienceLevel}
 
-${facialAnalysis ? `
-**FACIAL ANALYSIS DATA:**
-The candidate's non-verbal behavior during this response has been analyzed:
-- Emotions: ${JSON.stringify(facialAnalysis.emotions)}
-- Confidence Indicators: ${JSON.stringify(facialAnalysis.confidence)}
-- Engagement Metrics: ${JSON.stringify(facialAnalysis.engagement)}
-- Analysis Duration: ${facialAnalysis.duration_analyzed}s with ${facialAnalysis.sample_count} samples
+**COMPREHENSIVE SCORING CRITERIA (Each scored 0-10):**
 
-Use this data to assess non-verbal communication, confidence, and engagement levels.
-` : ''}
-
-**COMPREHENSIVE SCORING CRITERIA:**
-
-1. **Technical Accuracy & Knowledge (20%)**
+1. **Technical Accuracy & Knowledge (25%)**
    - Correctness of technical concepts mentioned
    - Depth of domain-specific knowledge
    - Use of appropriate terminology
    - Understanding of best practices
 
-2. **Problem-Solving & Critical Thinking (15%)**
+2. **Problem-Solving & Critical Thinking (20%)**
    - Logical reasoning and structured thinking
    - Ability to break down complex problems
    - Creative and innovative approaches
    - Risk assessment and mitigation strategies
 
-3. **Verbal Communication & Clarity (15%)**
+3. **Communication & Clarity (15%)**
    - Clear articulation of ideas
    - Logical flow and organization
    - Use of examples and analogies
    - Ability to explain complex concepts simply
 
-4. **Relevant Experience & Examples (10%)**
+4. **Relevant Experience & Examples (15%)**
    - Specific, concrete examples from experience
    - Relevance to the question asked
    - Demonstration of practical application
    - Learning from past experiences
 
-${facialAnalysis ? `
-5. **Non-Verbal Confidence (15%)**
-   - Eye contact and attention patterns
-   - Facial expression stability and appropriateness
-   - Head pose and body language confidence
-   - Overall non-verbal presence
-
-6. **Emotional Intelligence & Regulation (10%)**
-   - Appropriate emotional responses to questions
-   - Stress management and composure
-   - Emotional consistency throughout response
-   - Professional demeanor maintenance
-
-7. **Engagement & Enthusiasm (10%)**
-   - Level of attention and focus
-   - Enthusiasm and interest demonstration
-   - Active participation indicators
-   - Energy and motivation levels
-` : `
-5. **Leadership & Collaboration (15%)**
+5. **Leadership & Collaboration (10%)**
    - Evidence of teamwork and collaboration
    - Leadership potential and initiative
    - Conflict resolution abilities
@@ -126,9 +89,8 @@ ${facialAnalysis ? `
    - Continuous learning mindset
    - Ability to handle change and uncertainty
    - Growth mindset demonstration
-`}
 
-8. **Industry Awareness & Vision (5%)**
+7. **Industry Awareness & Vision (5%)**
    - Understanding of industry trends
    - Future-oriented thinking
    - Business impact awareness
@@ -138,16 +100,9 @@ ${facialAnalysis ? `
 
 For each scoring dimension, provide:
 - Specific score (0-10)
-- 2-3 bullet points of evidence from the response${facialAnalysis ? ' and non-verbal analysis' : ''}
+- 2-3 bullet points of evidence from the response
 - What was done well
 - What could be improved
-
-${facialAnalysis ? `
-**NON-VERBAL ANALYSIS GUIDELINES:**
-- High confidence: Good eye contact (>0.6), stable head position, consistent expressions
-- Good engagement: Focused attention (>0.7), appropriate enthusiasm, low stress indicators (<0.4)
-- Emotional regulation: Appropriate emotional responses, controlled stress levels, professional composure
-` : ''}
 
 **OVERALL ASSESSMENT:**
 - Calculate weighted average score (0-100)
@@ -174,13 +129,10 @@ Return your evaluation as a JSON object with this exact structure:
   "dimension_scores": {
     "technical_accuracy": <0-10>,
     "problem_solving": <0-10>,
-    "verbal_communication": <0-10>,
-    "experience_examples": <0-10>,${facialAnalysis ? `
-    "nonverbal_confidence": <0-10>,
-    "emotional_regulation": <0-10>,
-    "engagement_enthusiasm": <0-10>,` : `
+    "communication": <0-10>,
+    "experience_examples": <0-10>,
     "leadership_collaboration": <0-10>,
-    "adaptability_learning": <0-10>,`}
+    "adaptability_learning": <0-10>,
     "industry_awareness": <0-10>
   },
   "detailed_feedback": {
@@ -196,7 +148,7 @@ Return your evaluation as a JSON object with this exact structure:
       "strengths": ["strength1", "strength2"],
       "improvements": ["improvement1", "improvement2"]
     },
-    "verbal_communication": {
+    "communication": {
       "score": <0-10>,
       "evidence": ["point1", "point2"],
       "strengths": ["strength1", "strength2"],
@@ -207,25 +159,7 @@ Return your evaluation as a JSON object with this exact structure:
       "evidence": ["point1", "point2"],
       "strengths": ["strength1", "strength2"],
       "improvements": ["improvement1", "improvement2"]
-    },${facialAnalysis ? `
-    "nonverbal_confidence": {
-      "score": <0-10>,
-      "evidence": ["point1", "point2"],
-      "strengths": ["strength1", "strength2"],
-      "improvements": ["improvement1", "improvement2"]
     },
-    "emotional_regulation": {
-      "score": <0-10>,
-      "evidence": ["point1", "point2"],
-      "strengths": ["strength1", "strength2"],
-      "improvements": ["improvement1", "improvement2"]
-    },
-    "engagement_enthusiasm": {
-      "score": <0-10>,
-      "evidence": ["point1", "point2"],
-      "strengths": ["strength1", "strength2"],
-      "improvements": ["improvement1", "improvement2"]
-    },` : `
     "leadership_collaboration": {
       "score": <0-10>,
       "evidence": ["point1", "point2"],
@@ -237,7 +171,7 @@ Return your evaluation as a JSON object with this exact structure:
       "evidence": ["point1", "point2"],
       "strengths": ["strength1", "strength2"],
       "improvements": ["improvement1", "improvement2"]
-    },`}
+    },
     "industry_awareness": {
       "score": <0-10>,
       "evidence": ["point1", "point2"],
@@ -259,15 +193,10 @@ Return your evaluation as a JSON object with this exact structure:
   },
   "interviewer_notes": "Additional insights for the interviewing team",
   "recommendation": "<Strong Hire|Hire|Maybe|No Hire>",
-  "confidence_level": "<High|Medium|Low>"${facialAnalysis ? `,
-  "nonverbal_summary": {
-    "confidence_indicators": "summary of confidence-related observations",
-    "engagement_quality": "summary of engagement and enthusiasm",
-    "emotional_state": "summary of emotional regulation and appropriateness"
-  }` : ''}
+  "confidence_level": "<High|Medium|Low>"
 }
 
-Be thorough, fair, and constructive in your evaluation. ${facialAnalysis ? 'Use the facial analysis data to provide deeper insights into the candidate\'s non-verbal communication and overall presentation.' : ''} Focus on providing actionable feedback that helps both the candidate and the hiring team make informed decisions.
+Be thorough, fair, and constructive in your evaluation. Focus on providing actionable feedback that helps both the candidate and the hiring team make informed decisions.
 `;
 
     console.log('Sending evaluation request to Gemini API...');
@@ -308,8 +237,10 @@ Be thorough, fair, and constructive in your evaluation. ${facialAnalysis ? 'Use 
     const responseText = geminiData.candidates[0].content.parts[0].text;
     console.log('Evaluation content:', responseText.substring(0, 300) + '...');
 
+    // Parse JSON response
     let evaluationData;
     try {
+      // Clean the response text to extract JSON
       const jsonMatch = responseText.match(/\{[\s\S]*\}/);
       if (!jsonMatch) {
         throw new Error('No JSON found in response');
@@ -321,28 +252,19 @@ Be thorough, fair, and constructive in your evaluation. ${facialAnalysis ? 'Use 
       console.error('JSON parsing error:', parseError);
       console.error('Response text:', responseText);
       
-      // Fallback with appropriate dimensions based on whether facial analysis is available
-      const baseDimensions = {
-        technical_accuracy: 7,
-        problem_solving: 7,
-        verbal_communication: 7,
-        experience_examples: 6,
-        industry_awareness: 6
-      };
-
-      const facialDimensions = facialAnalysis ? {
-        nonverbal_confidence: 6,
-        emotional_regulation: 7,
-        engagement_enthusiasm: 6
-      } : {
-        leadership_collaboration: 6,
-        adaptability_learning: 7
-      };
-
+      // Fallback: create basic structured evaluation
       evaluationData = {
         overall_score: 70,
         performance_level: "Good",
-        dimension_scores: { ...baseDimensions, ...facialDimensions },
+        dimension_scores: {
+          technical_accuracy: 7,
+          problem_solving: 7,
+          communication: 7,
+          experience_examples: 6,
+          leadership_collaboration: 6,
+          adaptability_learning: 7,
+          industry_awareness: 6
+        },
         detailed_feedback: {
           technical_accuracy: {
             score: 7,
@@ -369,25 +291,17 @@ Be thorough, fair, and constructive in your evaluation. ${facialAnalysis ? 'Use 
       };
     }
 
+    // Validate and ensure required fields
     if (!evaluationData.overall_score || !evaluationData.performance_level) {
       throw new Error('Invalid evaluation format');
     }
 
     // Calculate final score if not provided
     if (!evaluationData.overall_score && evaluationData.dimension_scores) {
-      const weights = facialAnalysis ? {
-        technical_accuracy: 0.20,
-        problem_solving: 0.15,
-        verbal_communication: 0.15,
-        experience_examples: 0.10,
-        nonverbal_confidence: 0.15,
-        emotional_regulation: 0.10,
-        engagement_enthusiasm: 0.10,
-        industry_awareness: 0.05
-      } : {
+      const weights = {
         technical_accuracy: 0.25,
         problem_solving: 0.20,
-        verbal_communication: 0.15,
+        communication: 0.15,
         experience_examples: 0.15,
         leadership_collaboration: 0.10,
         adaptability_learning: 0.10,
@@ -416,12 +330,10 @@ Be thorough, fair, and constructive in your evaluation. ${facialAnalysis ? 'Use 
         cultural_fit: evaluationData.cultural_fit,
         recommendation: evaluationData.recommendation,
         confidence_level: evaluationData.confidence_level,
-        nonverbal_summary: evaluationData.nonverbal_summary,
         evaluation_summary: {
-          total_dimensions: facialAnalysis ? 8 : 7,
+          total_dimensions: 7,
           scoring_method: 'weighted_average',
-          experience_adjusted: true,
-          includes_facial_analysis: !!facialAnalysis
+          experience_adjusted: true
         }
       }),
       {
