@@ -38,10 +38,11 @@ serve(async (req) => {
     const audioBuffer = await audioResponse.arrayBuffer();
     console.log('Audio buffer size:', audioBuffer.byteLength);
 
-    // Create form data for ElevenLabs API - using file upload approach
+    // Create form data for ElevenLabs API
     const formData = new FormData();
     const audioBlob = new Blob([audioBuffer], { type: 'audio/webm' });
-    formData.append('audio', audioBlob, 'recording.webm');
+    formData.append('file', audioBlob, 'recording.webm');
+    formData.append('model_id', 'eleven_multilingual_v2');
 
     console.log('Sending request to ElevenLabs speech-to-text API...');
 
