@@ -38,7 +38,15 @@ const PersonalInfoForm = ({ userId }: PersonalInfoFormProps) => {
       .single();
 
     if (data && !error) {
-      setFormData(data);
+      setFormData({
+        full_name: data.full_name || "",
+        email: data.email || "",
+        phone: data.phone || "",
+        address: data.address || "",
+        linkedin_url: data.linkedin_url || "",
+        github_url: data.github_url || "",
+        portfolio_url: data.portfolio_url || ""
+      });
     }
   };
 
@@ -48,13 +56,21 @@ const PersonalInfoForm = ({ userId }: PersonalInfoFormProps) => {
 
     setIsLoading(true);
     try {
+      const personalInfoData = {
+        user_id: userId,
+        full_name: formData.full_name,
+        email: formData.email,
+        phone: formData.phone,
+        address: formData.address,
+        linkedin_url: formData.linkedin_url,
+        github_url: formData.github_url,
+        portfolio_url: formData.portfolio_url,
+        updated_at: new Date().toISOString()
+      };
+
       const { error } = await supabase
         .from('personal_info')
-        .upsert({
-          user_id: userId,
-          ...formData,
-          updated_at: new Date().toISOString()
-        }, {
+        .upsert(personalInfoData, {
           onConflict: 'user_id'
         });
 
