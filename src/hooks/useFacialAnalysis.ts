@@ -1,7 +1,32 @@
 
 import { useState, useRef, useCallback, useEffect } from 'react';
-import { FaceMesh } from '@mediapipe/face_mesh';
-import { Camera } from '@mediapipe/camera_utils';
+
+// MediaPipe types
+interface FaceMeshConfig {
+  locateFile: (file: string) => string;
+}
+
+interface FaceMeshOptions {
+  maxNumFaces: number;
+  refineLandmarks: boolean;
+  minDetectionConfidence: number;
+  minTrackingConfidence: number;
+}
+
+interface FaceMeshResults {
+  multiFaceLandmarks: any[];
+}
+
+interface FaceMesh {
+  setOptions: (options: FaceMeshOptions) => void;
+  onResults: (callback: (results: FaceMeshResults) => void) => void;
+  send: (input: { image: HTMLVideoElement }) => Promise<void>;
+}
+
+interface Camera {
+  start: () => void;
+  stop: () => void;
+}
 
 export interface FacialAnalysisData {
   emotions: {
@@ -140,7 +165,7 @@ export const useFacialAnalysis = () => {
     return engagement;
   }, []);
 
-  const onResults = useCallback((results: any) => {
+  const onResults = useCallback((results: FaceMeshResults) => {
     if (!results.multiFaceLandmarks || results.multiFaceLandmarks.length === 0) {
       return;
     }
@@ -183,8 +208,12 @@ export const useFacialAnalysis = () => {
 
   const initializeFaceMesh = useCallback(async () => {
     try {
+      // Dynamic import to handle MediaPipe loading
+      const { FaceMesh } = await import('@mediapipe/face_mesh');
+      const { Camera } = await import('@mediapipe/camera_utils');
+
       const faceMesh = new FaceMesh({
-        locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/${file}`,
+        locateFile: (file: string) => `https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/${file}`,
       });
 
       faceMesh.setOptions({
@@ -197,7 +226,7 @@ export const useFacialAnalysis = () => {
       faceMesh.onResults(onResults);
       faceMeshRef.current = faceMesh;
 
-      return faceMesh;
+      return { faceMesh, Camera };
     } catch (error) {
       console.error('Failed to initialize FaceMesh:', error);
       return null;
@@ -208,8 +237,10 @@ export const useFacialAnalysis = () => {
     if (!videoElement || isAnalyzing) return false;
 
     try {
-      const faceMesh = await initializeFaceMesh();
-      if (!faceMesh) return false;
+      const mediaResult = await initializeFaceMesh();
+      if (!mediaResult) return false;
+
+      const { faceMesh, Camera } = mediaResult;
 
       const camera = new Camera(videoElement, {
         onFrame: async () => {
