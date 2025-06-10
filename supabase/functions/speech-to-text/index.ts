@@ -7,36 +7,6 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-// Process base64 in chunks to prevent memory overflow
-function processBase64Chunks(base64String: string, chunkSize = 32768) {
-  const chunks: Uint8Array[] = [];
-  let position = 0;
-  
-  while (position < base64String.length) {
-    const chunk = base64String.slice(position, position + chunkSize);
-    const binaryChunk = atob(chunk);
-    const bytes = new Uint8Array(binaryChunk.length);
-    
-    for (let i = 0; i < binaryChunk.length; i++) {
-      bytes[i] = binaryChunk.charCodeAt(i);
-    }
-    
-    chunks.push(bytes);
-    position += chunkSize;
-  }
-
-  const totalLength = chunks.reduce((acc, chunk) => acc + chunk.length, 0);
-  const result = new Uint8Array(totalLength);
-  let offset = 0;
-
-  for (const chunk of chunks) {
-    result.set(chunk, offset);
-    offset += chunk.length;
-  }
-
-  return result;
-}
-
 serve(async (req) => {
   // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
@@ -44,29 +14,36 @@ serve(async (req) => {
   }
 
   try {
-    const { audio } = await req.json();
+    const { audioUrl, fileName } = await req.json();
     
-    if (!audio) {
-      throw new Error('No audio data provided');
+    if (!audioUrl) {
+      throw new Error('Audio URL is required');
     }
 
-    console.log('Processing audio for speech-to-text, size:', audio.length);
-
-    // Convert base64 to binary using chunked processing to avoid overflow
-    const binaryAudio = processBase64Chunks(audio);
-    
-    console.log('Converted audio size:', binaryAudio.length, 'bytes');
-    
-    // Create form data for ElevenLabs API
-    const formData = new FormData();
-    const audioBlob = new Blob([binaryAudio], { type: 'audio/webm' });
-    formData.append('audio', audioBlob, 'audio.webm');
-    formData.append('model_id', 'eleven_multilingual_v2');
+    console.log('Processing audio from URL:', audioUrl);
+    console.log('File name:', fileName);
 
     const elevenLabsApiKey = Deno.env.get('ELEVEN_LABS_API_KEY');
     if (!elevenLabsApiKey) {
       throw new Error('ElevenLabs API key not configured');
     }
+
+    // Download the audio file from Supabase storage
+    console.log('Downloading audio file from Supabase storage...');
+    const audioResponse = await fetch(audioUrl);
+    
+    if (!audioResponse.ok) {
+      throw new Error(`Failed to download audio file: ${audioResponse.status}`);
+    }
+
+    const audioArrayBuffer = await audioResponse.arrayBuffer();
+    console.log('Downloaded audio size:', audioArrayBuffer.byteLength, 'bytes');
+
+    // Create form data for ElevenLabs API
+    const formData = new FormData();
+    const audioBlob = new Blob([audioArrayBuffer], { type: 'audio/webm' });
+    formData.append('audio', audioBlob, fileName || 'audio.webm');
+    formData.append('model_id', 'eleven_multilingual_v2');
 
     console.log('Calling ElevenLabs Speech-to-Text API...');
 

@@ -168,11 +168,15 @@ const InterviewSession = ({ config, interviewId, userId, onEndInterview }: Inter
   const startRecording = async () => {
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      mediaRecorderRef.current = new MediaRecorder(stream);
+      mediaRecorderRef.current = new MediaRecorder(stream, {
+        mimeType: 'audio/webm;codecs=opus'
+      });
       audioChunksRef.current = [];
 
       mediaRecorderRef.current.ondataavailable = (event) => {
-        audioChunksRef.current.push(event.data);
+        if (event.data.size > 0) {
+          audioChunksRef.current.push(event.data);
+        }
       };
 
       mediaRecorderRef.current.onstop = async () => {
@@ -181,7 +185,7 @@ const InterviewSession = ({ config, interviewId, userId, onEndInterview }: Inter
         stream.getTracks().forEach(track => track.stop());
       };
 
-      mediaRecorderRef.current.start();
+      mediaRecorderRef.current.start(1000); // Collect data every second
       setIsRecording(true);
     } catch (error) {
       console.error('Error starting recording:', error);
@@ -205,13 +209,17 @@ const InterviewSession = ({ config, interviewId, userId, onEndInterview }: Inter
     try {
       console.log("Processing audio blob:", audioBlob.size, "bytes");
 
-      // Upload to Supabase storage with user folder structure
-      const fileName = `${userId}/interview_${interviewId}_q${currentQuestionIndex + 1}_${Date.now()}.webm`;
-      console.log("Uploading to:", fileName);
+      // Generate unique filename
+      const timestamp = Date.now();
+      const fileName = `interview_${interviewId}_q${currentQuestionIndex + 1}_${timestamp}.webm`;
+      const filePath = `${userId}/${fileName}`;
+
+      console.log("Uploading audio to:", filePath);
       
+      // Upload to Supabase storage
       const { data: uploadData, error: uploadError } = await supabase.storage
         .from('audio_files')
-        .upload(fileName, audioBlob, {
+        .upload(filePath, audioBlob, {
           contentType: 'audio/webm',
           upsert: false
         });
@@ -223,15 +231,23 @@ const InterviewSession = ({ config, interviewId, userId, onEndInterview }: Inter
 
       console.log("Upload successful:", uploadData);
 
-      // Convert audio blob to base64 for speech-to-text processing
-      const arrayBuffer = await audioBlob.arrayBuffer();
-      const uint8Array = new Uint8Array(arrayBuffer);
-      const base64Audio = btoa(String.fromCharCode(...uint8Array));
+      // Get public URL for the uploaded file
+      const { data: urlData } = supabase.storage
+        .from('audio_files')
+        .getPublicUrl(filePath);
+
+      if (!urlData?.publicUrl) {
+        throw new Error('Failed to get public URL for uploaded audio');
+      }
+
+      console.log("Public URL:", urlData.publicUrl);
       
-      console.log("Sending audio to speech-to-text, size:", base64Audio.length);
-      
+      // Send the URL to speech-to-text function
       const { data, error } = await supabase.functions.invoke('speech-to-text', {
-        body: { audio: base64Audio }
+        body: { 
+          audioUrl: urlData.publicUrl,
+          fileName: fileName
+        }
       });
 
       console.log("Speech-to-text response:", data, error);
@@ -261,7 +277,8 @@ const InterviewSession = ({ config, interviewId, userId, onEndInterview }: Inter
       await supabase
         .from('interview_questions')
         .update({
-          user_response: userResponse
+          user_response: userResponse,
+          audio_file_path: filePath
         })
         .eq('interview_id', interviewId)
         .eq('question_number', currentQuestionIndex + 1);
