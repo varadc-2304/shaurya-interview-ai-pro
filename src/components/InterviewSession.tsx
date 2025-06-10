@@ -1,4 +1,3 @@
-
 import { useState, useEffect, useRef } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Brain } from "lucide-react";
@@ -8,7 +7,6 @@ import { supabase } from "@/integrations/supabase/client";
 import CameraFeed from './CameraFeed';
 import AIAvatar from './AIAvatar';
 import FloatingControls from './FloatingControls';
-import QuestionTimer from './QuestionTimer';
 
 interface InterviewSessionProps {
   config: InterviewConfig;
@@ -21,7 +19,6 @@ interface Question {
   id: string;
   text: string;
   number: number;
-  timeLimit: number; // in seconds
 }
 
 const InterviewSession = ({ config, interviewId, userId, onEndInterview }: InterviewSessionProps) => {
@@ -32,17 +29,14 @@ const InterviewSession = ({ config, interviewId, userId, onEndInterview }: Inter
   const [duration, setDuration] = useState(0);
   const [isProcessing, setIsProcessing] = useState(false);
   const [isGeneratingQuestions, setIsGeneratingQuestions] = useState(true);
-  const [questionStartTime, setQuestionStartTime] = useState<number>(Date.now());
-  const [resumeSummary, setResumeSummary] = useState<string>('');
   
   const { toast } = useToast();
   const audioRef = useRef<HTMLAudioElement | null>(null);
 
   const totalQuestions = 5;
-  const defaultQuestionTimeLimit = 180; // 3 minutes per question
 
   useEffect(() => {
-    fetchResumeSummary();
+    generateQuestions();
   }, []);
 
   useEffect(() => {
@@ -57,45 +51,19 @@ const InterviewSession = ({ config, interviewId, userId, onEndInterview }: Inter
     setProgress((currentQuestionIndex / totalQuestions) * 100);
   }, [currentQuestionIndex, totalQuestions]);
 
-  const fetchResumeSummary = async () => {
-    try {
-      const { data: resumeData } = await supabase
-        .from('resume_summary')
-        .select('summary_text')
-        .eq('user_id', userId)
-        .single();
-
-      if (resumeData?.summary_text) {
-        setResumeSummary(resumeData.summary_text);
-      }
-      
-      // Start generating questions after fetching resume
-      generateQuestions(resumeData?.summary_text || '');
-    } catch (error) {
-      console.error('Error fetching resume summary:', error);
-      generateQuestions('');
-    }
-  };
-
-  const generateQuestions = async (resumeContext: string = '') => {
+  const generateQuestions = async () => {
     try {
       setIsGeneratingQuestions(true);
-      console.log("Generating personalized questions with config:", config);
+      console.log("Generating questions with config:", config);
       
-      // Enhanced context with resume summary
-      const enhancedContext = resumeContext 
-        ? `Based on the candidate's resume summary: "${resumeContext}", generate personalized interview questions that are relevant to their background and experience.`
-        : '';
-
       const { data, error } = await supabase.functions.invoke('generate-questions', {
         body: {
           jobRole: config.jobRole,
           domain: config.domain,
           experienceLevel: config.experienceLevel,
           interviewType: config.questionType,
-          additionalConstraints: `${config.additionalConstraints || ''} ${enhancedContext}`,
-          numQuestions: totalQuestions,
-          personalizedContext: resumeContext
+          additionalConstraints: config.additionalConstraints,
+          numQuestions: totalQuestions
         }
       });
 
@@ -107,8 +75,7 @@ const InterviewSession = ({ config, interviewId, userId, onEndInterview }: Inter
         const questionList = data.questions.map((q: any, index: number) => ({
           id: `q${index + 1}`,
           text: q.question,
-          number: index + 1,
-          timeLimit: q.timeLimit || defaultQuestionTimeLimit
+          number: index + 1
         }));
         
         setQuestions(questionList);
@@ -122,9 +89,8 @@ const InterviewSession = ({ config, interviewId, userId, onEndInterview }: Inter
           });
         }
         
-        // Read out first question and start timer
+        // Read out first question
         if (questionList.length > 0) {
-          setQuestionStartTime(Date.now());
           await playQuestion(questionList[0].text);
         }
       }
@@ -132,7 +98,7 @@ const InterviewSession = ({ config, interviewId, userId, onEndInterview }: Inter
       console.error('Error generating questions:', error);
       toast({
         title: "Error",
-        description: "Failed to generate personalized questions. Please try again.",
+        description: "Failed to generate questions. Please try again.",
         variant: "destructive"
       });
     } finally {
@@ -178,29 +144,6 @@ const InterviewSession = ({ config, interviewId, userId, onEndInterview }: Inter
         variant: "destructive"
       });
     }
-  };
-
-  const handleQuestionTimeUp = async () => {
-    console.log('Question time up, auto-submitting...');
-    
-    toast({
-      title: "Time's Up!",
-      description: "Moving to the next question automatically.",
-      variant: "destructive"
-    });
-
-    // Auto-submit empty response
-    await handleEnhancedResponse({
-      audioBlob: null,
-      textContent: "Time expired - no response provided",
-      codeContent: "",
-      codeLanguage: "javascript"
-    });
-
-    // Move to next question
-    setTimeout(() => {
-      handleNextQuestion();
-    }, 1500);
   };
 
   const handleEnhancedResponse = async (response: {
@@ -271,7 +214,7 @@ const InterviewSession = ({ config, interviewId, userId, onEndInterview }: Inter
         response.codeContent && `Code (${response.codeLanguage}): ${response.codeContent}`
       ].filter(Boolean).join('\n\n');
 
-      if (!combinedResponse.trim() && !response.textContent.includes("Time expired")) {
+      if (!combinedResponse.trim()) {
         toast({
           title: "No Response Detected",
           description: "Please provide at least one type of response.",
@@ -286,9 +229,6 @@ const InterviewSession = ({ config, interviewId, userId, onEndInterview }: Inter
       const currentQuestion = questions[currentQuestionIndex];
       await evaluateResponse(currentQuestion, combinedResponse);
       
-      // Calculate response time
-      const responseTime = Math.floor((Date.now() - questionStartTime) / 1000);
-      
       // Update interview question with all response components
       await supabase
         .from('interview_questions')
@@ -296,18 +236,15 @@ const InterviewSession = ({ config, interviewId, userId, onEndInterview }: Inter
           user_response: transcribedText,
           user_text_response: response.textContent,
           user_code_response: response.codeContent,
-          response_language: response.codeContent ? response.codeLanguage : null,
-          response_time_seconds: responseTime
+          response_language: response.codeContent ? response.codeLanguage : null
         })
         .eq('interview_id', interviewId)
         .eq('question_number', currentQuestionIndex + 1);
 
-      if (!response.textContent.includes("Time expired")) {
-        toast({
-          title: "Response Submitted",
-          description: "Your comprehensive answer has been processed successfully.",
-        });
-      }
+      toast({
+        title: "Response Submitted",
+        description: "Your comprehensive answer has been processed successfully.",
+      });
 
     } catch (error) {
       console.error('Error processing enhanced response:', error);
@@ -331,8 +268,7 @@ const InterviewSession = ({ config, interviewId, userId, onEndInterview }: Inter
           question: question.text,
           answer: userResponse,
           jobRole: config.jobRole,
-          domain: config.domain,
-          resumeContext: resumeSummary
+          domain: config.domain
         }
       });
 
@@ -361,7 +297,6 @@ const InterviewSession = ({ config, interviewId, userId, onEndInterview }: Inter
     if (currentQuestionIndex < questions.length - 1) {
       const nextIndex = currentQuestionIndex + 1;
       setCurrentQuestionIndex(nextIndex);
-      setQuestionStartTime(Date.now());
       await playQuestion(questions[nextIndex].text);
     } else {
       await handleFinishInterview();
@@ -393,9 +328,7 @@ const InterviewSession = ({ config, interviewId, userId, onEndInterview }: Inter
         <div className="text-center bg-white rounded-3xl p-16 shadow-xl border border-gray-100 max-w-md">
           <Brain className="h-20 w-20 mx-auto mb-8 text-blue-600 animate-pulse" />
           <h2 className="text-3xl font-bold mb-4 text-gray-900">Preparing Your Interview</h2>
-          <p className="text-gray-600 text-lg mb-8">
-            Our AI is generating personalized questions based on your profile...
-          </p>
+          <p className="text-gray-600 text-lg mb-8">Our AI is generating personalized questions...</p>
           <div className="space-y-3">
             <Badge variant="secondary" className="px-6 py-2 text-sm bg-blue-50 text-blue-700 border-blue-200">
               {config.jobRole}
@@ -403,11 +336,6 @@ const InterviewSession = ({ config, interviewId, userId, onEndInterview }: Inter
             <Badge variant="secondary" className="px-6 py-2 text-sm bg-blue-50 text-blue-700 border-blue-200">
               {config.domain}
             </Badge>
-            {resumeSummary && (
-              <Badge variant="secondary" className="px-6 py-2 text-sm bg-green-50 text-green-700 border-green-200">
-                Personalized
-              </Badge>
-            )}
           </div>
         </div>
       </div>
@@ -425,11 +353,9 @@ const InterviewSession = ({ config, interviewId, userId, onEndInterview }: Inter
     );
   }
 
-  const currentQuestion = questions[currentQuestionIndex];
-
   return (
     <div className="h-screen bg-gradient-to-br from-gray-50 to-white flex flex-col overflow-hidden">
-      {/* Header with Question Number and Timer */}
+      {/* Minimal Header with Question Number */}
       <div className="flex-none py-3 px-6">
         <div className="max-w-6xl mx-auto">
           <div className="bg-white/95 backdrop-blur-xl rounded-xl px-6 py-3 shadow-lg border border-gray-200">
@@ -440,33 +366,13 @@ const InterviewSession = ({ config, interviewId, userId, onEndInterview }: Inter
                   <span>{config.jobRole}</span>
                   <span className="w-1 h-1 bg-gray-400 rounded-full"></span>
                   <span>{config.domain}</span>
-                  {resumeSummary && (
-                    <>
-                      <span className="w-1 h-1 bg-gray-400 rounded-full"></span>
-                      <span className="text-green-600 font-medium">Personalized</span>
-                    </>
-                  )}
                 </div>
               </div>
-              <div className="flex items-center space-x-4">
-                <Badge variant="secondary" className="text-sm bg-blue-50 text-blue-700 border-blue-200 px-4 py-1">
-                  Q{currentQuestionIndex + 1}/{totalQuestions}
-                </Badge>
-              </div>
+              <Badge variant="secondary" className="text-sm bg-blue-50 text-blue-700 border-blue-200 px-4 py-1">
+                Q{currentQuestionIndex + 1}/{totalQuestions}
+              </Badge>
             </div>
           </div>
-        </div>
-      </div>
-
-      {/* Question Timer */}
-      <div className="flex-none px-6 pb-2">
-        <div className="max-w-6xl mx-auto">
-          <QuestionTimer
-            duration={currentQuestion?.timeLimit || defaultQuestionTimeLimit}
-            onTimeUp={handleQuestionTimeUp}
-            isPaused={isSpeaking}
-            isVisible={!isGeneratingQuestions}
-          />
         </div>
       </div>
 
