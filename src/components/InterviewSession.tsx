@@ -86,10 +86,9 @@ const InterviewSession = ({ config, interviewId, userId, onEndInterview }: Inter
       if (error) throw error;
 
       if (data?.questions) {
-        // Fix: Extract the 'question' property from each question object
         const questionList = data.questions.map((q: any, index: number) => ({
           id: `q${index + 1}`,
-          text: q.question, // Extract the 'question' property, not the whole object
+          text: q.question,
           number: index + 1
         }));
         
@@ -124,6 +123,8 @@ const InterviewSession = ({ config, interviewId, userId, onEndInterview }: Inter
   const playQuestion = async (questionText: string) => {
     try {
       setIsSpeaking(true);
+      console.log('Playing question:', questionText);
+      
       const { data, error } = await supabase.functions.invoke('text-to-speech', {
         body: {
           text: questionText,
@@ -167,22 +168,30 @@ const InterviewSession = ({ config, interviewId, userId, onEndInterview }: Inter
 
   const startRecording = async () => {
     try {
+      console.log('Starting audio recording...');
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      mediaRecorderRef.current = new MediaRecorder(stream);
+      mediaRecorderRef.current = new MediaRecorder(stream, {
+        mimeType: 'audio/webm;codecs=opus'
+      });
       audioChunksRef.current = [];
 
       mediaRecorderRef.current.ondataavailable = (event) => {
+        console.log('Audio data available, size:', event.data.size);
         audioChunksRef.current.push(event.data);
       };
 
       mediaRecorderRef.current.onstop = async () => {
+        console.log('Recording stopped, processing audio...');
         const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/webm' });
+        console.log('Audio blob created, size:', audioBlob.size);
+        
         await handleAudioRecorded(audioBlob);
         stream.getTracks().forEach(track => track.stop());
       };
 
       mediaRecorderRef.current.start();
       setIsRecording(true);
+      console.log('Recording started successfully');
     } catch (error) {
       console.error('Error starting recording:', error);
       toast({
@@ -194,6 +203,7 @@ const InterviewSession = ({ config, interviewId, userId, onEndInterview }: Inter
   };
 
   const stopRecording = () => {
+    console.log('Stopping recording...');
     if (mediaRecorderRef.current && isRecording) {
       mediaRecorderRef.current.stop();
       setIsRecording(false);
@@ -203,52 +213,86 @@ const InterviewSession = ({ config, interviewId, userId, onEndInterview }: Inter
 
   const handleAudioRecorded = async (audioBlob: Blob) => {
     try {
-      // Upload to Supabase storage
+      console.log('Processing recorded audio, size:', audioBlob.size);
+      
+      // Create unique filename
       const fileName = `interview_${interviewId}_q${currentQuestionIndex + 1}_${Date.now()}.webm`;
+      console.log('Uploading to storage with filename:', fileName);
+
+      // Upload to Supabase storage
       const { data: uploadData, error: uploadError } = await supabase.storage
         .from('audio_files')
-        .upload(fileName, audioBlob);
+        .upload(fileName, audioBlob, {
+          contentType: 'audio/webm'
+        });
 
-      if (uploadError) throw uploadError;
+      if (uploadError) {
+        console.error('Storage upload error:', uploadError);
+        throw uploadError;
+      }
+
+      console.log('Upload successful:', uploadData);
 
       // Get public URL
       const { data: { publicUrl } } = supabase.storage
         .from('audio_files')
         .getPublicUrl(fileName);
 
-      // Convert audio to text
-      const reader = new FileReader();
-      reader.onload = async () => {
-        const base64Audio = (reader.result as string).split(',')[1];
-        
-        const { data, error } = await supabase.functions.invoke('speech-to-text', {
-          body: { audio: base64Audio }
-        });
+      console.log('Public URL obtained:', publicUrl);
 
-        if (error) throw error;
+      // Send URL to speech-to-text function
+      console.log('Sending to speech-to-text function...');
+      const { data: transcriptionData, error: transcriptionError } = await supabase.functions.invoke('speech-to-text', {
+        body: { audioUrl: publicUrl }
+      });
 
-        const userResponse = data?.text || '';
-        
-        // Evaluate response
-        const currentQuestion = questions[currentQuestionIndex];
-        await evaluateResponse(currentQuestion, userResponse);
-        
-        // Update interview question with response
-        await supabase
-          .from('interview_questions')
-          .update({
-            user_response: userResponse
-          })
-          .eq('interview_id', interviewId)
-          .eq('question_number', currentQuestionIndex + 1);
-      };
+      if (transcriptionError) {
+        console.error('Speech-to-text error:', transcriptionError);
+        throw transcriptionError;
+      }
+
+      console.log('Transcription result:', transcriptionData);
+
+      const userResponse = transcriptionData?.text || '';
+      console.log('User response text:', userResponse);
       
-      reader.readAsDataURL(audioBlob);
+      if (!userResponse.trim()) {
+        toast({
+          title: "No Speech Detected",
+          description: "Please try recording again and speak clearly.",
+          variant: "destructive"
+        });
+        return;
+      }
+
+      // Evaluate response
+      const currentQuestion = questions[currentQuestionIndex];
+      await evaluateResponse(currentQuestion, userResponse);
+      
+      // Update interview question with response
+      await supabase
+        .from('interview_questions')
+        .update({
+          user_response: userResponse
+        })
+        .eq('interview_id', interviewId)
+        .eq('question_number', currentQuestionIndex + 1);
+
+      // Clean up the uploaded file after processing
+      await supabase.storage
+        .from('audio_files')
+        .remove([fileName]);
+
+      toast({
+        title: "Response Recorded",
+        description: "Your answer has been processed successfully.",
+      });
+
     } catch (error) {
       console.error('Error processing audio:', error);
       toast({
         title: "Processing Error",
-        description: "Failed to process your response.",
+        description: `Failed to process your response: ${error.message}`,
         variant: "destructive"
       });
     } finally {
@@ -258,6 +302,9 @@ const InterviewSession = ({ config, interviewId, userId, onEndInterview }: Inter
 
   const evaluateResponse = async (question: Question, userResponse: string) => {
     try {
+      console.log('Evaluating response for question:', question.text);
+      console.log('User response:', userResponse);
+      
       const { data, error } = await supabase.functions.invoke('evaluate-response', {
         body: {
           question: question.text,
@@ -268,6 +315,8 @@ const InterviewSession = ({ config, interviewId, userId, onEndInterview }: Inter
       });
 
       if (error) throw error;
+
+      console.log('Evaluation result:', data);
 
       // Update database with evaluation
       await supabase
@@ -298,6 +347,8 @@ const InterviewSession = ({ config, interviewId, userId, onEndInterview }: Inter
 
   const handleFinishInterview = async () => {
     try {
+      console.log('Finishing interview...');
+      
       // Update interview status
       await supabase
         .from('interviews')
