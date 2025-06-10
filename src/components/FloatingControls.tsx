@@ -7,11 +7,11 @@ import {
   Mic, 
   MicOff, 
   Send,
-  Brain,
-  CheckCircle,
   SkipForward,
   StopCircle,
-  Clock
+  Clock,
+  Edit3,
+  Code2
 } from 'lucide-react';
 import TextEditor from './TextEditor';
 import CodeEditor from './CodeEditor';
@@ -102,142 +102,123 @@ const FloatingControls = ({
   };
 
   return (
-    <div className="fixed bottom-6 left-1/2 transform -translate-x-1/2 z-50">
-      {/* Main Controls Glass Panel */}
-      <div className="bg-white/90 backdrop-blur-xl border border-white/20 rounded-2xl shadow-2xl p-6 mx-4">
-        <div className="flex flex-col space-y-6">
-          {/* Progress and Info Row */}
-          <div className="flex items-center justify-between text-sm">
+    <div className="fixed bottom-8 left-1/2 transform -translate-x-1/2 z-50 w-full max-w-4xl px-6">
+      {/* Progress Bar - Top */}
+      <div className="mb-6">
+        <div className="bg-white/95 backdrop-blur-xl rounded-2xl shadow-lg border border-gray-200 p-4">
+          <div className="flex items-center justify-between mb-3">
             <div className="flex items-center space-x-4">
-              <div className="flex items-center space-x-2 text-muted-foreground">
+              <div className="flex items-center space-x-2 text-gray-600">
                 <Clock className="h-4 w-4" />
-                <span>{formatTime(duration)}</span>
+                <span className="font-medium">{formatTime(duration)}</span>
               </div>
-              <Badge variant="secondary">
+              <Badge variant="secondary" className="bg-blue-50 text-blue-700 border-blue-200">
                 Question {currentQuestion} of {totalQuestions}
               </Badge>
             </div>
-            <span className="text-muted-foreground">{Math.round(progress)}% complete</span>
+            <span className="text-gray-500 font-medium">{Math.round(progress)}% complete</span>
           </div>
-
-          {/* Progress Bar */}
           <Progress value={progress} className="h-2" />
+        </div>
+      </div>
 
-          {/* Main Control Row */}
-          <div className="flex items-center justify-center space-x-6">
-            {/* Text Editor */}
-            <div className="flex flex-col items-center space-y-2">
-              <TextEditor
-                onSave={updateTextContent}
-                initialText={response.textContent}
-              />
-              {response.hasText && (
-                <Badge variant="secondary" className="text-xs">
-                  <CheckCircle className="h-3 w-3 mr-1" />
-                  Text
-                </Badge>
-              )}
-            </div>
-
-            {/* Main Recording Button */}
-            <div className="flex flex-col items-center space-y-2">
-              <Button
-                onClick={isRecording ? stopRecording : handleStartRecording}
-                size="lg"
-                className={`w-20 h-20 rounded-full ${
-                  isRecording 
-                    ? 'bg-red-500 hover:bg-red-600 animate-pulse shadow-lg shadow-red-500/30' 
-                    : 'shaurya-gradient hover:opacity-90 shadow-lg shadow-blue-500/30'
-                } transition-all duration-300 transform hover:scale-105`}
-                disabled={disabled || isProcessing}
-              >
-                {isRecording ? (
-                  <MicOff className="h-8 w-8" />
-                ) : (
-                  <Mic className="h-8 w-8" />
-                )}
-              </Button>
-              
-              <p className="text-xs text-muted-foreground text-center">
-                {isRecording ? "Recording... Click to stop" : "Click to record"}
-              </p>
-              
-              {response.hasAudio && (
-                <Badge variant="secondary" className="text-xs">
-                  <CheckCircle className="h-3 w-3 mr-1" />
-                  Audio
-                </Badge>
-              )}
-            </div>
-
-            {/* Code Editor */}
-            <div className="flex flex-col items-center space-y-2">
-              <CodeEditor
-                onSave={updateCodeContent}
-                initialCode={response.codeContent}
-                initialLanguage={response.codeLanguage}
-              />
-              {response.hasCode && (
-                <Badge variant="secondary" className="text-xs">
-                  <CheckCircle className="h-3 w-3 mr-1" />
-                  Code
-                </Badge>
-              )}
-            </div>
+      {/* Main Controls */}
+      <div className="bg-white/95 backdrop-blur-xl rounded-3xl shadow-xl border border-gray-200 p-8">
+        <div className="flex items-center justify-center space-x-8">
+          {/* Text Editor */}
+          <div className="flex flex-col items-center space-y-3">
+            <TextEditor
+              onSave={updateTextContent}
+              initialText={response.textContent}
+            />
+            <span className="text-xs text-gray-500 font-medium">Add Text</span>
+            {response.hasText && (
+              <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+            )}
           </div>
 
-          {/* Response Summary */}
-          {hasAnyContent && (
-            <div className="text-center">
-              <p className="text-xs text-muted-foreground">
-                Response includes: {[
-                  response.hasAudio && 'Audio',
-                  response.hasText && 'Text',
-                  response.hasCode && `Code (${response.codeLanguage})`
-                ].filter(Boolean).join(', ')}
-              </p>
-            </div>
-          )}
-
-          {/* Action Buttons Row */}
-          <div className="flex items-center justify-center space-x-4">
+          {/* Main Recording Button */}
+          <div className="flex flex-col items-center space-y-4">
             <Button
-              onClick={handleSubmit}
-              disabled={!hasAnyContent || isProcessing || disabled || isRecording}
-              className="px-8"
+              onClick={isRecording ? stopRecording : handleStartRecording}
+              size="lg"
+              className={`w-24 h-24 rounded-full transition-all duration-300 transform hover:scale-105 ${
+                isRecording 
+                  ? 'bg-red-500 hover:bg-red-600 animate-pulse shadow-lg shadow-red-500/30' 
+                  : 'bg-blue-600 hover:bg-blue-700 shadow-lg shadow-blue-500/30'
+              }`}
+              disabled={disabled || isProcessing}
             >
-              {isProcessing ? (
-                <>
-                  <Brain className="mr-2 h-4 w-4 animate-spin" />
-                  Processing...
-                </>
+              {isRecording ? (
+                <MicOff className="h-10 w-10" />
               ) : (
-                <>
-                  <Send className="mr-2 h-4 w-4" />
-                  Submit Response
-                </>
+                <Mic className="h-10 w-10" />
               )}
-            </Button>
-
-            <Button
-              onClick={onNextQuestion}
-              variant="outline"
-              disabled={isProcessing}
-            >
-              <SkipForward className="mr-2 h-4 w-4" />
-              {currentQuestion < totalQuestions ? 'Next Question' : 'Finish Interview'}
             </Button>
             
-            <Button
-              onClick={onEndInterview}
-              variant="destructive"
-              disabled={isProcessing}
-              size="sm"
-            >
-              <StopCircle className="mr-2 h-4 w-4" />
-              End
-            </Button>
+            <p className="text-sm text-gray-600 font-medium text-center">
+              {isRecording ? "Recording..." : "Record Answer"}
+            </p>
+            
+            {response.hasAudio && (
+              <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+            )}
           </div>
+
+          {/* Code Editor */}
+          <div className="flex flex-col items-center space-y-3">
+            <CodeEditor
+              onSave={updateCodeContent}
+              initialCode={response.codeContent}
+              initialLanguage={response.codeLanguage}
+            />
+            <span className="text-xs text-gray-500 font-medium">Add Code</span>
+            {response.hasCode && (
+              <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+            )}
+          </div>
+        </div>
+
+        {/* Action Buttons */}
+        <div className="flex items-center justify-center space-x-4 mt-8 pt-6 border-t border-gray-100">
+          <Button
+            onClick={handleSubmit}
+            disabled={!hasAnyContent || isProcessing || disabled || isRecording}
+            className="px-8 py-3 rounded-xl bg-blue-600 hover:bg-blue-700"
+          >
+            {isProcessing ? (
+              <>
+                <div className="mr-2 h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
+                Processing...
+              </>
+            ) : (
+              <>
+                <Send className="mr-2 h-4 w-4" />
+                Submit Response
+              </>
+            )}
+          </Button>
+
+          <Button
+            onClick={onNextQuestion}
+            variant="outline"
+            disabled={isProcessing}
+            className="px-6 py-3 rounded-xl border-gray-300"
+          >
+            <SkipForward className="mr-2 h-4 w-4" />
+            {currentQuestion < totalQuestions ? 'Next Question' : 'Finish'}
+          </Button>
+          
+          <Button
+            onClick={onEndInterview}
+            variant="destructive"
+            disabled={isProcessing}
+            size="sm"
+            className="px-4 py-3 rounded-xl"
+          >
+            <StopCircle className="mr-2 h-4 w-4" />
+            End Interview
+          </Button>
         </div>
       </div>
     </div>

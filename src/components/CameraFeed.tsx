@@ -63,12 +63,12 @@ const CameraFeed = ({ className = '' }: CameraFeedProps) => {
   }, []);
 
   return (
-    <div className={`relative bg-gray-900 rounded-2xl overflow-hidden shadow-2xl ${className}`}>
-      {/* Header */}
-      <div className="absolute top-4 left-4 z-10">
-        <div className="bg-black/50 backdrop-blur-sm rounded-lg px-3 py-1">
-          <span className="text-white text-sm font-medium flex items-center">
-            <User className="h-4 w-4 mr-2" />
+    <div className={`relative bg-white rounded-3xl overflow-hidden shadow-xl border border-gray-100 ${className}`}>
+      {/* Minimal Header */}
+      <div className="absolute top-6 left-6 z-10">
+        <div className="bg-white/90 backdrop-blur-sm rounded-full px-4 py-2 shadow-sm">
+          <span className="text-gray-700 text-sm font-medium flex items-center">
+            <User className="h-4 w-4 mr-2 text-blue-600" />
             You
           </span>
         </div>
@@ -84,34 +84,39 @@ const CameraFeed = ({ className = '' }: CameraFeedProps) => {
           className="w-full h-full object-cover"
         />
       ) : (
-        <div className="w-full h-full flex flex-col items-center justify-center bg-gradient-to-br from-gray-800 to-gray-900">
+        <div className="w-full h-full flex flex-col items-center justify-center bg-gradient-to-br from-gray-50 to-gray-100">
           {isLoading ? (
             <div className="text-center">
-              <Camera className="h-12 w-12 text-gray-400 mx-auto mb-4 animate-pulse" />
-              <p className="text-gray-300">Starting camera...</p>
+              <Camera className="h-16 w-16 text-gray-300 mx-auto mb-6 animate-pulse" />
+              <p className="text-gray-500 text-lg font-medium">Starting camera...</p>
             </div>
           ) : error ? (
-            <div className="text-center px-6">
-              <CameraOff className="h-12 w-12 text-red-400 mx-auto mb-4" />
-              <p className="text-red-300 mb-4">Camera not available</p>
-              <Button onClick={startCamera} variant="outline" size="sm">
+            <div className="text-center px-8">
+              <CameraOff className="h-16 w-16 text-red-400 mx-auto mb-6" />
+              <p className="text-red-500 mb-6 text-lg font-medium">Camera not available</p>
+              <Button 
+                onClick={startCamera} 
+                variant="outline" 
+                className="rounded-full px-6"
+              >
                 Try Again
               </Button>
             </div>
           ) : (
             <div className="text-center">
-              <Camera className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-              <p className="text-gray-300">Camera initializing...</p>
+              <Camera className="h-16 w-16 text-gray-300 mx-auto mb-6" />
+              <p className="text-gray-500 text-lg font-medium">Camera initializing...</p>
             </div>
           )}
         </div>
       )}
 
-      {/* Recording indicator */}
+      {/* Live indicator */}
       {hasPermission && (
-        <div className="absolute top-4 right-4">
-          <div className="bg-green-500 rounded-full p-2">
-            <div className="w-2 h-2 bg-white rounded-full animate-pulse" />
+        <div className="absolute top-6 right-6">
+          <div className="bg-red-500 rounded-full px-3 py-1 flex items-center">
+            <div className="w-2 h-2 bg-white rounded-full animate-pulse mr-2" />
+            <span className="text-white text-xs font-medium">LIVE</span>
           </div>
         </div>
       )}

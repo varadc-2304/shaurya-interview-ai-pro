@@ -324,14 +324,17 @@ const InterviewSession = ({ config, interviewId, userId, onEndInterview }: Inter
 
   if (isGeneratingQuestions) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-white flex items-center justify-center">
-        <div className="text-center bg-white/80 backdrop-blur-xl rounded-2xl p-12 shadow-2xl border border-white/20">
-          <Brain className="h-16 w-16 mx-auto mb-6 text-primary animate-pulse" />
-          <h2 className="text-2xl font-semibold mb-4 shaurya-text-gradient">Preparing Your Interview</h2>
-          <p className="text-muted-foreground text-lg">Our AI is generating personalized questions...</p>
-          <div className="mt-6">
-            <Badge variant="secondary" className="px-4 py-2">
-              {config.jobRole} • {config.domain}
+      <div className="min-h-screen bg-gradient-to-br from-gray-50 to-white flex items-center justify-center">
+        <div className="text-center bg-white rounded-3xl p-16 shadow-xl border border-gray-100 max-w-md">
+          <Brain className="h-20 w-20 mx-auto mb-8 text-blue-600 animate-pulse" />
+          <h2 className="text-3xl font-bold mb-4 text-gray-900">Preparing Your Interview</h2>
+          <p className="text-gray-600 text-lg mb-8">Our AI is generating personalized questions...</p>
+          <div className="space-y-3">
+            <Badge variant="secondary" className="px-6 py-2 text-sm bg-blue-50 text-blue-700 border-blue-200">
+              {config.jobRole}
+            </Badge>
+            <Badge variant="secondary" className="px-6 py-2 text-sm bg-blue-50 text-blue-700 border-blue-200">
+              {config.domain}
             </Badge>
           </div>
         </div>
@@ -341,28 +344,28 @@ const InterviewSession = ({ config, interviewId, userId, onEndInterview }: Inter
 
   if (questions.length === 0) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-white flex items-center justify-center">
-        <div className="text-center bg-white/80 backdrop-blur-xl rounded-2xl p-12 shadow-2xl border border-white/20">
-          <h2 className="text-xl font-semibold mb-2 text-red-600">Error</h2>
-          <p className="text-muted-foreground">Failed to generate questions. Please try again.</p>
+      <div className="min-h-screen bg-gradient-to-br from-gray-50 to-white flex items-center justify-center">
+        <div className="text-center bg-white rounded-3xl p-16 shadow-xl border border-gray-100 max-w-md">
+          <h2 className="text-2xl font-bold mb-4 text-red-600">Error</h2>
+          <p className="text-gray-600">Failed to generate questions. Please try again.</p>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-900 to-slate-900 overflow-hidden">
-      {/* Header */}
-      <div className="absolute top-6 left-1/2 transform -translate-x-1/2 z-40">
-        <div className="bg-white/10 backdrop-blur-xl rounded-2xl px-6 py-3 border border-white/20">
+    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-white">
+      {/* Minimal Header */}
+      <div className="absolute top-8 left-1/2 transform -translate-x-1/2 z-30">
+        <div className="bg-white/95 backdrop-blur-xl rounded-2xl px-8 py-4 shadow-lg border border-gray-200">
           <div className="text-center">
-            <h1 className="text-xl font-bold text-white mb-1">AI Interview Session</h1>
-            <div className="flex items-center justify-center space-x-4 text-sm text-white/80">
-              <span>{config.jobRole}</span>
-              <span>•</span>
-              <span>{config.domain}</span>
-              <span>•</span>
-              <Badge variant="secondary" className="text-xs">
+            <h1 className="text-2xl font-bold text-gray-900 mb-2">AI Interview Session</h1>
+            <div className="flex items-center justify-center space-x-4 text-sm text-gray-600">
+              <span className="font-medium">{config.jobRole}</span>
+              <span className="w-1 h-1 bg-gray-400 rounded-full"></span>
+              <span className="font-medium">{config.domain}</span>
+              <span className="w-1 h-1 bg-gray-400 rounded-full"></span>
+              <Badge variant="secondary" className="text-xs bg-blue-50 text-blue-700 border-blue-200">
                 {config.questionType}
               </Badge>
             </div>
@@ -370,23 +373,25 @@ const InterviewSession = ({ config, interviewId, userId, onEndInterview }: Inter
         </div>
       </div>
 
-      {/* Main Split Screen Layout */}
-      <div className="min-h-screen grid grid-cols-2 gap-8 p-8 pt-24">
-        {/* Left Side - User Camera */}
-        <div className="flex items-center justify-center">
-          <CameraFeed className="w-full h-96 max-w-lg" />
-        </div>
+      {/* Main Content - Split Screen */}
+      <div className="min-h-screen pt-32 pb-80 px-12">
+        <div className="max-w-7xl mx-auto h-full grid grid-cols-2 gap-12 items-center">
+          {/* Left Side - User Camera */}
+          <div className="flex justify-center">
+            <CameraFeed className="w-full max-w-lg aspect-[4/3]" />
+          </div>
 
-        {/* Right Side - AI Avatar */}
-        <div className="flex items-center justify-center">
-          <AIAvatar 
-            isSpeaking={isSpeaking} 
-            className="w-full h-96 max-w-lg" 
-          />
+          {/* Right Side - AI Avatar */}
+          <div className="flex justify-center">
+            <AIAvatar 
+              isSpeaking={isSpeaking} 
+              className="w-full max-w-lg aspect-[4/3]" 
+            />
+          </div>
         </div>
       </div>
 
-      {/* Floating Controls */}
+      {/* Floating Controls - Completely Separate */}
       <FloatingControls
         onSubmitResponse={handleEnhancedResponse}
         onNextQuestion={handleNextQuestion}
