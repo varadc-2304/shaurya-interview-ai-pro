@@ -14,13 +14,41 @@ import {
   CheckCircle,
   AlertCircle,
   Target,
-  Brain
+  Brain,
+  Star,
+  Users,
+  Lightbulb,
+  BarChart3,
+  Award,
+  BookOpen
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 
 interface InterviewResultsProps {
   interviewId: string;
   onStartNewInterview: () => void;
+}
+
+interface DimensionScores {
+  technical_accuracy: number;
+  problem_solving: number;
+  communication: number;
+  experience_examples: number;
+  leadership_collaboration: number;
+  adaptability_learning: number;
+  industry_awareness: number;
+}
+
+interface DetailedFeedback {
+  score: number;
+  evidence: string[];
+  strengths: string[];
+  improvements: string[];
+}
+
+interface CulturalFit {
+  rating: string;
+  reasoning: string;
 }
 
 interface InterviewQuestion {
@@ -32,6 +60,12 @@ interface InterviewQuestion {
   evaluation_feedback: string;
   strengths: string[];
   improvements: string[];
+  dimension_scores?: DimensionScores;
+  detailed_feedback?: Record<string, DetailedFeedback>;
+  cultural_fit?: CulturalFit;
+  recommendation?: string;
+  confidence_level?: string;
+  follow_up_questions?: string[];
 }
 
 interface InterviewData {
@@ -49,7 +83,10 @@ const InterviewResults = ({ interviewId, onStartNewInterview }: InterviewResults
   const [questions, setQuestions] = useState<InterviewQuestion[]>([]);
   const [loading, setLoading] = useState(true);
   const [overallScore, setOverallScore] = useState(0);
+  const [overallDimensionScores, setOverallDimensionScores] = useState<DimensionScores | null>(null);
   const [overallFeedback, setOverallFeedback] = useState('');
+  const [performanceLevel, setPerformanceLevel] = useState('');
+  const [overallRecommendation, setOverallRecommendation] = useState('');
 
   useEffect(() => {
     fetchInterviewResults();
@@ -79,16 +116,9 @@ const InterviewResults = ({ interviewId, onStartNewInterview }: InterviewResults
       if (questionsError) throw questionsError;
       setQuestions(questionsData || []);
 
-      // Calculate overall score and generate feedback
+      // Calculate overall metrics
       if (questionsData && questionsData.length > 0) {
-        const validScores = questionsData.filter(q => q.evaluation_score !== null);
-        if (validScores.length > 0) {
-          const avgScore = validScores.reduce((sum, q) => sum + q.evaluation_score, 0) / validScores.length;
-          setOverallScore(Math.round(avgScore));
-          
-          // Generate overall feedback
-          await generateOverallFeedback(questionsData, interview);
-        }
+        calculateOverallMetrics(questionsData);
       }
 
     } catch (error) {
@@ -98,32 +128,66 @@ const InterviewResults = ({ interviewId, onStartNewInterview }: InterviewResults
     }
   };
 
-  const generateOverallFeedback = async (questionsData: InterviewQuestion[], interview: InterviewData) => {
-    try {
-      const responses = questionsData.map(q => ({
-        question: q.question_text,
-        answer: q.user_response,
-        score: q.evaluation_score
-      }));
+  const calculateOverallMetrics = (questionsData: InterviewQuestion[]) => {
+    const validScores = questionsData.filter(q => q.evaluation_score !== null);
+    if (validScores.length === 0) return;
 
-      const { data, error } = await supabase.functions.invoke('evaluate-response', {
-        body: {
-          type: 'overall_evaluation',
-          responses,
-          jobRole: interview.job_role,
-          domain: interview.domain
+    // Calculate overall score
+    const avgScore = validScores.reduce((sum, q) => sum + q.evaluation_score, 0) / validScores.length;
+    setOverallScore(Math.round(avgScore));
+
+    // Calculate dimension averages if available
+    const questionsWithDimensions = questionsData.filter(q => q.dimension_scores);
+    if (questionsWithDimensions.length > 0) {
+      const dimensions: DimensionScores = {
+        technical_accuracy: 0,
+        problem_solving: 0,
+        communication: 0,
+        experience_examples: 0,
+        leadership_collaboration: 0,
+        adaptability_learning: 0,
+        industry_awareness: 0
+      };
+
+      questionsWithDimensions.forEach(q => {
+        if (q.dimension_scores) {
+          Object.keys(dimensions).forEach(key => {
+            dimensions[key as keyof DimensionScores] += q.dimension_scores![key as keyof DimensionScores] || 0;
+          });
         }
       });
 
-      if (error) throw error;
-      
-      if (data?.feedback) {
-        setOverallFeedback(data.feedback);
-      }
-    } catch (error) {
-      console.error('Error generating overall feedback:', error);
-      setOverallFeedback('Unable to generate detailed feedback at this time.');
+      Object.keys(dimensions).forEach(key => {
+        dimensions[key as keyof DimensionScores] = Math.round(
+          dimensions[key as keyof DimensionScores] / questionsWithDimensions.length
+        );
+      });
+
+      setOverallDimensionScores(dimensions);
     }
+
+    // Determine performance level
+    if (avgScore >= 90) setPerformanceLevel('Excellent');
+    else if (avgScore >= 80) setPerformanceLevel('Strong');
+    else if (avgScore >= 70) setPerformanceLevel('Good');
+    else if (avgScore >= 60) setPerformanceLevel('Satisfactory');
+    else if (avgScore >= 50) setPerformanceLevel('Needs Improvement');
+    else setPerformanceLevel('Weak');
+
+    // Set overall recommendation based on latest question's recommendation
+    const latestQuestion = questionsData[questionsData.length - 1];
+    if (latestQuestion?.recommendation) {
+      setOverallRecommendation(latestQuestion.recommendation);
+    }
+
+    setOverallFeedback(generateOverallFeedback(questionsData, avgScore));
+  };
+
+  const generateOverallFeedback = (questionsData: InterviewQuestion[], score: number) => {
+    const strengths = questionsData.flatMap(q => q.strengths || []);
+    const improvements = questionsData.flatMap(q => q.improvements || []);
+    
+    return `Based on your ${questionsData.length} responses, you demonstrated ${strengths.length > 0 ? 'strong ' + strengths[0] : 'good communication skills'}. Key areas for development include ${improvements.length > 0 ? improvements[0] : 'providing more specific examples'}.`;
   };
 
   const formatTime = (dateString: string) => {
@@ -155,6 +219,28 @@ const InterviewResults = ({ interviewId, onStartNewInterview }: InterviewResults
     return <AlertCircle className="h-5 w-5 text-red-600" />;
   };
 
+  const getPerformanceLevelColor = (level: string) => {
+    switch (level) {
+      case 'Excellent': return 'text-green-700 bg-green-100';
+      case 'Strong': return 'text-blue-700 bg-blue-100';
+      case 'Good': return 'text-indigo-700 bg-indigo-100';
+      case 'Satisfactory': return 'text-yellow-700 bg-yellow-100';
+      case 'Needs Improvement': return 'text-orange-700 bg-orange-100';
+      case 'Weak': return 'text-red-700 bg-red-100';
+      default: return 'text-gray-700 bg-gray-100';
+    }
+  };
+
+  const dimensionLabels = {
+    technical_accuracy: { label: 'Technical Accuracy', icon: Brain },
+    problem_solving: { label: 'Problem Solving', icon: Lightbulb },
+    communication: { label: 'Communication', icon: MessageSquare },
+    experience_examples: { label: 'Experience Examples', icon: BookOpen },
+    leadership_collaboration: { label: 'Leadership & Collaboration', icon: Users },
+    adaptability_learning: { label: 'Adaptability & Learning', icon: TrendingUp },
+    industry_awareness: { label: 'Industry Awareness', icon: BarChart3 }
+  };
+
   if (loading) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-blue-50 to-white flex items-center justify-center">
@@ -181,12 +267,17 @@ const InterviewResults = ({ interviewId, onStartNewInterview }: InterviewResults
           </div>
           <h1 className="text-3xl font-bold shaurya-text-gradient mb-3">Interview Complete!</h1>
           <p className="text-muted-foreground text-lg">
-            Here's your detailed performance analysis
+            Here's your comprehensive performance analysis
           </p>
+          {performanceLevel && (
+            <Badge className={`mt-2 px-4 py-2 text-sm ${getPerformanceLevelColor(performanceLevel)}`}>
+              {performanceLevel} Performance
+            </Badge>
+          )}
         </div>
 
         {/* Summary Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
           <Card className="shadow-lg border-0">
             <CardContent className="pt-6">
               <div className="flex items-center space-x-3">
@@ -234,11 +325,65 @@ const InterviewResults = ({ interviewId, onStartNewInterview }: InterviewResults
               </div>
             </CardContent>
           </Card>
+
+          <Card className="shadow-lg border-0">
+            <CardContent className="pt-6">
+              <div className="flex items-center space-x-3">
+                <div className="p-2 bg-orange-100 rounded-lg">
+                  <Award className="h-6 w-6 text-orange-600" />
+                </div>
+                <div>
+                  <p className="text-sm text-muted-foreground">Recommendation</p>
+                  <p className="text-lg font-bold text-foreground">
+                    {overallRecommendation || 'Maybe'}
+                  </p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           {/* Question-wise Analysis */}
-          <div className="lg:col-span-2">
+          <div className="lg:col-span-2 space-y-6">
+            {/* Dimension Scores */}
+            {overallDimensionScores && (
+              <Card className="shadow-lg border-0">
+                <CardHeader>
+                  <CardTitle className="flex items-center space-x-2">
+                    <Star className="h-5 w-5 text-primary" />
+                    <span>Performance Dimensions</span>
+                  </CardTitle>
+                  <CardDescription>
+                    Detailed breakdown across key evaluation criteria
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {Object.entries(overallDimensionScores).map(([key, score]) => {
+                      const dimension = dimensionLabels[key as keyof DimensionScores];
+                      const IconComponent = dimension.icon;
+                      return (
+                        <div key={key} className="space-y-2">
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center space-x-2">
+                              <IconComponent className="h-4 w-4 text-primary" />
+                              <span className="text-sm font-medium">{dimension.label}</span>
+                            </div>
+                            <span className={`text-sm font-bold ${getScoreColor(score * 10)}`}>
+                              {score}/10
+                            </span>
+                          </div>
+                          <Progress value={score * 10} className="h-2" />
+                        </div>
+                      );
+                    })}
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+
+            {/* Question-wise Analysis */}
             <Card className="shadow-lg border-0">
               <CardHeader>
                 <CardTitle className="flex items-center space-x-2">
@@ -251,7 +396,7 @@ const InterviewResults = ({ interviewId, onStartNewInterview }: InterviewResults
               </CardHeader>
               <CardContent className="space-y-6">
                 {questions.map((q) => (
-                  <div key={q.id} className="border rounded-lg p-4 space-y-3">
+                  <div key={q.id} className="border rounded-lg p-4 space-y-4">
                     <div className="flex items-start justify-between">
                       <div className="flex-1">
                         <div className="flex items-center space-x-2 mb-2">
@@ -260,6 +405,11 @@ const InterviewResults = ({ interviewId, onStartNewInterview }: InterviewResults
                           <span className={`font-semibold ${getScoreColor(q.evaluation_score || 0)}`}>
                             {q.evaluation_score || 0}%
                           </span>
+                          {q.confidence_level && (
+                            <Badge variant="secondary" className="text-xs">
+                              {q.confidence_level} Confidence
+                            </Badge>
+                          )}
                         </div>
                         <p className="text-sm font-medium text-foreground mb-2">
                           {q.question_text}
@@ -278,6 +428,21 @@ const InterviewResults = ({ interviewId, onStartNewInterview }: InterviewResults
                       <div className="bg-blue-50 p-3 rounded text-xs">
                         <p className="font-medium text-blue-700 mb-1">AI Evaluation:</p>
                         <p className="text-blue-600 mb-2">{q.evaluation_feedback}</p>
+                      </div>
+                    )}
+
+                    {/* Dimension scores for this question */}
+                    {q.dimension_scores && (
+                      <div className="bg-purple-50 p-3 rounded">
+                        <p className="font-medium text-purple-700 mb-2 text-xs">Dimension Breakdown:</p>
+                        <div className="grid grid-cols-2 gap-2 text-xs">
+                          {Object.entries(q.dimension_scores).map(([key, score]) => (
+                            <div key={key} className="flex justify-between">
+                              <span className="text-purple-600">{dimensionLabels[key as keyof DimensionScores]?.label}:</span>
+                              <span className="font-medium">{score}/10</span>
+                            </div>
+                          ))}
+                        </div>
                       </div>
                     )}
 
@@ -303,6 +468,18 @@ const InterviewResults = ({ interviewId, onStartNewInterview }: InterviewResults
                         )}
                       </div>
                     )}
+
+                    {/* Follow-up questions */}
+                    {q.follow_up_questions && q.follow_up_questions.length > 0 && (
+                      <div className="bg-indigo-50 p-3 rounded text-xs">
+                        <p className="font-medium text-indigo-700 mb-1">Suggested Follow-up Questions:</p>
+                        <ul className="text-indigo-600 list-disc list-inside">
+                          {q.follow_up_questions.map((question, idx) => (
+                            <li key={idx}>{question}</li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
                     
                     <Progress value={q.evaluation_score || 0} className="h-2" />
                   </div>
@@ -318,7 +495,7 @@ const InterviewResults = ({ interviewId, onStartNewInterview }: InterviewResults
               <CardHeader>
                 <CardTitle className="flex items-center space-x-2">
                   <TrendingUp className="h-5 w-5 text-primary" />
-                  <span>Overall Feedback</span>
+                  <span>Overall Assessment</span>
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
@@ -327,6 +504,11 @@ const InterviewResults = ({ interviewId, onStartNewInterview }: InterviewResults
                     {overallScore}%
                   </div>
                   <Progress value={overallScore} className="h-3 mb-4" />
+                  {performanceLevel && (
+                    <Badge className={`mb-4 px-3 py-1 ${getPerformanceLevelColor(performanceLevel)}`}>
+                      {performanceLevel}
+                    </Badge>
+                  )}
                 </div>
                 
                 <div className="bg-blue-50 p-4 rounded-lg">
@@ -334,6 +516,24 @@ const InterviewResults = ({ interviewId, onStartNewInterview }: InterviewResults
                     {overallFeedback || 'Your interview performance shows good communication skills with room for improvement in providing specific examples and demonstrating deeper domain knowledge.'}
                   </p>
                 </div>
+
+                {/* Cultural Fit Assessment */}
+                {questions.some(q => q.cultural_fit) && (
+                  <div className="bg-green-50 p-4 rounded-lg">
+                    <h4 className="font-medium text-sm mb-2 text-green-800">Cultural Fit Assessment:</h4>
+                    {questions.filter(q => q.cultural_fit).map((q, idx) => (
+                      <div key={idx} className="text-xs text-green-700">
+                        <div className="flex items-center justify-between mb-1">
+                          <span>Rating:</span>
+                          <Badge variant="outline" className="text-xs">
+                            {q.cultural_fit?.rating}
+                          </Badge>
+                        </div>
+                        <p>{q.cultural_fit?.reasoning}</p>
+                      </div>
+                    ))}
+                  </div>
+                )}
 
                 {interviewData && (
                   <div className="pt-2">
@@ -366,7 +566,7 @@ const InterviewResults = ({ interviewId, onStartNewInterview }: InterviewResults
                 
                 <Button variant="outline" className="w-full">
                   <Download className="mr-2 h-4 w-4" />
-                  Download Report
+                  Download Detailed Report
                 </Button>
               </CardContent>
             </Card>
