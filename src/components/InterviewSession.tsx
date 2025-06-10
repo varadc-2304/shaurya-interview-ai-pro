@@ -168,15 +168,11 @@ const InterviewSession = ({ config, interviewId, userId, onEndInterview }: Inter
   const startRecording = async () => {
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      mediaRecorderRef.current = new MediaRecorder(stream, {
-        mimeType: 'audio/webm;codecs=opus'
-      });
+      mediaRecorderRef.current = new MediaRecorder(stream);
       audioChunksRef.current = [];
 
       mediaRecorderRef.current.ondataavailable = (event) => {
-        if (event.data.size > 0) {
-          audioChunksRef.current.push(event.data);
-        }
+        audioChunksRef.current.push(event.data);
       };
 
       mediaRecorderRef.current.onstop = async () => {
@@ -185,7 +181,7 @@ const InterviewSession = ({ config, interviewId, userId, onEndInterview }: Inter
         stream.getTracks().forEach(track => track.stop());
       };
 
-      mediaRecorderRef.current.start(1000); // Collect data every second
+      mediaRecorderRef.current.start();
       setIsRecording(true);
     } catch (error) {
       console.error('Error starting recording:', error);
@@ -207,92 +203,52 @@ const InterviewSession = ({ config, interviewId, userId, onEndInterview }: Inter
 
   const handleAudioRecorded = async (audioBlob: Blob) => {
     try {
-      console.log("Processing audio blob:", audioBlob.size, "bytes");
-
-      // Generate unique filename
-      const timestamp = Date.now();
-      const fileName = `interview_${interviewId}_q${currentQuestionIndex + 1}_${timestamp}.webm`;
-      const filePath = `${userId}/${fileName}`;
-
-      console.log("Uploading audio to:", filePath);
-      
       // Upload to Supabase storage
+      const fileName = `interview_${interviewId}_q${currentQuestionIndex + 1}_${Date.now()}.webm`;
       const { data: uploadData, error: uploadError } = await supabase.storage
         .from('audio_files')
-        .upload(filePath, audioBlob, {
-          contentType: 'audio/webm',
-          upsert: false
-        });
+        .upload(fileName, audioBlob);
 
-      if (uploadError) {
-        console.error("Upload error:", uploadError);
-        throw uploadError;
-      }
+      if (uploadError) throw uploadError;
 
-      console.log("Upload successful:", uploadData);
-
-      // Get public URL for the uploaded file
-      const { data: urlData } = supabase.storage
+      // Get public URL
+      const { data: { publicUrl } } = supabase.storage
         .from('audio_files')
-        .getPublicUrl(filePath);
+        .getPublicUrl(fileName);
 
-      if (!urlData?.publicUrl) {
-        throw new Error('Failed to get public URL for uploaded audio');
-      }
-
-      console.log("Public URL:", urlData.publicUrl);
-      
-      // Send the URL to speech-to-text function
-      const { data, error } = await supabase.functions.invoke('speech-to-text', {
-        body: { 
-          audioUrl: urlData.publicUrl,
-          fileName: fileName
-        }
-      });
-
-      console.log("Speech-to-text response:", data, error);
-
-      if (error) {
-        console.error("Speech-to-text error:", error);
-        throw error;
-      }
-
-      const userResponse = data?.text || '';
-      console.log("Transcribed text:", userResponse);
-      
-      if (!userResponse.trim()) {
-        toast({
-          title: "No Speech Detected",
-          description: "Please try recording your response again.",
-          variant: "destructive"
+      // Convert audio to text
+      const reader = new FileReader();
+      reader.onload = async () => {
+        const base64Audio = (reader.result as string).split(',')[1];
+        
+        const { data, error } = await supabase.functions.invoke('speech-to-text', {
+          body: { audio: base64Audio }
         });
-        return;
-      }
-      
-      // Evaluate response
-      const currentQuestion = questions[currentQuestionIndex];
-      await evaluateResponse(currentQuestion, userResponse);
-      
-      // Update interview question with response
-      await supabase
-        .from('interview_questions')
-        .update({
-          user_response: userResponse,
-          audio_file_path: filePath
-        })
-        .eq('interview_id', interviewId)
-        .eq('question_number', currentQuestionIndex + 1);
 
-      toast({
-        title: "Response Recorded",
-        description: "Your answer has been processed successfully.",
-      });
+        if (error) throw error;
 
+        const userResponse = data?.text || '';
+        
+        // Evaluate response
+        const currentQuestion = questions[currentQuestionIndex];
+        await evaluateResponse(currentQuestion, userResponse);
+        
+        // Update interview question with response
+        await supabase
+          .from('interview_questions')
+          .update({
+            user_response: userResponse
+          })
+          .eq('interview_id', interviewId)
+          .eq('question_number', currentQuestionIndex + 1);
+      };
+      
+      reader.readAsDataURL(audioBlob);
     } catch (error) {
       console.error('Error processing audio:', error);
       toast({
         title: "Processing Error",
-        description: "Failed to process your response. Please try again.",
+        description: "Failed to process your response.",
         variant: "destructive"
       });
     } finally {
