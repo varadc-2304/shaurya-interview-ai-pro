@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -10,7 +9,7 @@ import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 
 interface SkillsFormProps {
-  userId: string | undefined;
+  userId: string;
 }
 
 interface Skill {
@@ -35,13 +34,21 @@ const SkillsForm = ({ userId }: SkillsFormProps) => {
   }, [userId]);
 
   const fetchSkills = async () => {
-    const { data, error } = await supabase
-      .from('resume_skills')
-      .select('*')
-      .eq('user_id', userId);
+    console.log('Fetching skills for user:', userId);
+    try {
+      const { data, error } = await supabase
+        .from('resume_skills')
+        .select('*')
+        .eq('user_id', userId);
 
-    if (data && !error) {
-      setSkills(data);
+      if (error) {
+        console.error('Error fetching skills:', error);
+      } else {
+        console.log('Fetched skills:', data);
+        setSkills(data || []);
+      }
+    } catch (error) {
+      console.error('Error in fetchSkills:', error);
     }
   };
 
@@ -56,7 +63,17 @@ const SkillsForm = ({ userId }: SkillsFormProps) => {
   const removeSkill = async (index: number) => {
     const skill = skills[index];
     if (skill.id) {
-      await supabase.from('resume_skills').delete().eq('id', skill.id);
+      console.log('Deleting skill with id:', skill.id);
+      const { error } = await supabase.from('resume_skills').delete().eq('id', skill.id);
+      if (error) {
+        console.error('Error deleting skill:', error);
+        toast({
+          title: "Error",
+          description: "Failed to delete skill.",
+          variant: "destructive"
+        });
+        return;
+      }
     }
     setSkills(skills.filter((_, i) => i !== index));
   };
@@ -69,9 +86,18 @@ const SkillsForm = ({ userId }: SkillsFormProps) => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!userId) return;
+    if (!userId) {
+      toast({
+        title: "Error",
+        description: "User not authenticated.",
+        variant: "destructive"
+      });
+      return;
+    }
 
     setIsLoading(true);
+    console.log('Saving skills:', skills);
+
     try {
       for (const skill of skills) {
         // Skip empty skills
@@ -79,15 +105,32 @@ const SkillsForm = ({ userId }: SkillsFormProps) => {
 
         const skillData = {
           user_id: userId,
-          skill_name: skill.skill_name,
-          skill_category: skill.skill_category,
-          proficiency_level: skill.proficiency_level
+          skill_name: skill.skill_name.trim(),
+          skill_category: skill.skill_category || null,
+          proficiency_level: skill.proficiency_level || null
         };
 
+        console.log('Saving skill:', skillData);
+
         if (skill.id) {
-          await supabase.from('resume_skills').update(skillData).eq('id', skill.id);
+          const { error } = await supabase
+            .from('resume_skills')
+            .update(skillData)
+            .eq('id', skill.id);
+          
+          if (error) {
+            console.error('Error updating skill:', error);
+            throw error;
+          }
         } else {
-          await supabase.from('resume_skills').insert(skillData);
+          const { error } = await supabase
+            .from('resume_skills')
+            .insert(skillData);
+          
+          if (error) {
+            console.error('Error inserting skill:', error);
+            throw error;
+          }
         }
       }
 
@@ -95,12 +138,14 @@ const SkillsForm = ({ userId }: SkillsFormProps) => {
         title: "Success",
         description: "Skills saved successfully.",
       });
-      fetchSkills();
+      
+      // Refresh the data
+      await fetchSkills();
     } catch (error) {
       console.error('Error saving skills:', error);
       toast({
         title: "Error",
-        description: "Failed to save skills.",
+        description: "Failed to save skills. Please try again.",
         variant: "destructive"
       });
     } finally {

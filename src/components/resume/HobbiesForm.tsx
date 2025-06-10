@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -10,7 +9,7 @@ import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 
 interface HobbiesFormProps {
-  userId: string | undefined;
+  userId: string;
 }
 
 interface Hobby {
@@ -31,13 +30,21 @@ const HobbiesForm = ({ userId }: HobbiesFormProps) => {
   }, [userId]);
 
   const fetchHobbies = async () => {
-    const { data, error } = await supabase
-      .from('hobbies_activities')
-      .select('*')
-      .eq('user_id', userId);
+    console.log('Fetching hobbies for user:', userId);
+    try {
+      const { data, error } = await supabase
+        .from('hobbies_activities')
+        .select('*')
+        .eq('user_id', userId);
 
-    if (data && !error) {
-      setHobbies(data);
+      if (error) {
+        console.error('Error fetching hobbies:', error);
+      } else {
+        console.log('Fetched hobbies:', data);
+        setHobbies(data || []);
+      }
+    } catch (error) {
+      console.error('Error in fetchHobbies:', error);
     }
   };
 
@@ -51,7 +58,17 @@ const HobbiesForm = ({ userId }: HobbiesFormProps) => {
   const removeHobby = async (index: number) => {
     const hobby = hobbies[index];
     if (hobby.id) {
-      await supabase.from('hobbies_activities').delete().eq('id', hobby.id);
+      console.log('Deleting hobby with id:', hobby.id);
+      const { error } = await supabase.from('hobbies_activities').delete().eq('id', hobby.id);
+      if (error) {
+        console.error('Error deleting hobby:', error);
+        toast({
+          title: "Error",
+          description: "Failed to delete hobby.",
+          variant: "destructive"
+        });
+        return;
+      }
     }
     setHobbies(hobbies.filter((_, i) => i !== index));
   };
@@ -64,9 +81,18 @@ const HobbiesForm = ({ userId }: HobbiesFormProps) => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!userId) return;
+    if (!userId) {
+      toast({
+        title: "Error",
+        description: "User not authenticated.",
+        variant: "destructive"
+      });
+      return;
+    }
 
     setIsLoading(true);
+    console.log('Saving hobbies:', hobbies);
+
     try {
       for (const hobby of hobbies) {
         // Skip empty hobbies
@@ -74,14 +100,31 @@ const HobbiesForm = ({ userId }: HobbiesFormProps) => {
 
         const hobbyData = {
           user_id: userId,
-          activity_name: hobby.activity_name,
-          description: hobby.description
+          activity_name: hobby.activity_name.trim(),
+          description: hobby.description.trim() || null
         };
 
+        console.log('Saving hobby:', hobbyData);
+
         if (hobby.id) {
-          await supabase.from('hobbies_activities').update(hobbyData).eq('id', hobby.id);
+          const { error } = await supabase
+            .from('hobbies_activities')
+            .update(hobbyData)
+            .eq('id', hobby.id);
+          
+          if (error) {
+            console.error('Error updating hobby:', error);
+            throw error;
+          }
         } else {
-          await supabase.from('hobbies_activities').insert(hobbyData);
+          const { error } = await supabase
+            .from('hobbies_activities')
+            .insert(hobbyData);
+          
+          if (error) {
+            console.error('Error inserting hobby:', error);
+            throw error;
+          }
         }
       }
 
@@ -89,12 +132,14 @@ const HobbiesForm = ({ userId }: HobbiesFormProps) => {
         title: "Success",
         description: "Hobbies and activities saved successfully.",
       });
-      fetchHobbies();
+      
+      // Refresh the data
+      await fetchHobbies();
     } catch (error) {
       console.error('Error saving hobbies:', error);
       toast({
         title: "Error",
-        description: "Failed to save hobbies and activities.",
+        description: "Failed to save hobbies and activities. Please try again.",
         variant: "destructive"
       });
     } finally {

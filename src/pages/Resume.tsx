@@ -3,7 +3,6 @@ import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Badge } from "@/components/ui/badge";
 import { User, GraduationCap, Briefcase, Code, FolderOpen, Award, Trophy, Heart, FileText } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
@@ -18,36 +17,64 @@ import HobbiesForm from "@/components/resume/HobbiesForm";
 
 const Resume = () => {
   const [currentUser, setCurrentUser] = useState<any>(null);
+  const [isLoading, setIsLoading] = useState(true);
   const [resumeSummary, setResumeSummary] = useState<string>("");
   const [isGeneratingSummary, setIsGeneratingSummary] = useState(false);
   const { toast } = useToast();
 
   useEffect(() => {
     getCurrentUser();
-    fetchResumeSummary();
   }, []);
 
+  useEffect(() => {
+    if (currentUser) {
+      fetchResumeSummary();
+    }
+  }, [currentUser]);
+
   const getCurrentUser = async () => {
-    const { data: { user } } = await supabase.auth.getUser();
-    setCurrentUser(user);
+    try {
+      const { data: { user }, error } = await supabase.auth.getUser();
+      if (error) {
+        console.error('Error getting user:', error);
+        toast({
+          title: "Authentication Error",
+          description: "Please log in to access your resume.",
+          variant: "destructive"
+        });
+      } else {
+        console.log('Current user:', user);
+        setCurrentUser(user);
+      }
+    } catch (error) {
+      console.error('Error in getCurrentUser:', error);
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const fetchResumeSummary = async () => {
-    if (!currentUser) return;
+    if (!currentUser?.id) return;
     
-    const { data, error } = await supabase
-      .from('resume_summary')
-      .select('summary_text')
-      .eq('user_id', currentUser.id)
-      .single();
+    try {
+      const { data, error } = await supabase
+        .from('resume_summary')
+        .select('summary_text')
+        .eq('user_id', currentUser.id)
+        .maybeSingle();
 
-    if (data && !error) {
-      setResumeSummary(data.summary_text);
+      if (error) {
+        console.error('Error fetching resume summary:', error);
+      } else if (data) {
+        setResumeSummary(data.summary_text);
+      }
+    } catch (error) {
+      console.error('Error in fetchResumeSummary:', error);
     }
   };
 
   const generateSummary = async () => {
-    if (!currentUser) return;
+    if (!currentUser?.id) return;
 
     try {
       setIsGeneratingSummary(true);
@@ -74,6 +101,32 @@ const Resume = () => {
       setIsGeneratingSummary(false);
     }
   };
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-white p-6 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
+          <p className="text-muted-foreground">Loading your resume...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!currentUser) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-white p-6 flex items-center justify-center">
+        <Card className="max-w-md mx-auto">
+          <CardHeader>
+            <CardTitle className="text-center">Authentication Required</CardTitle>
+            <CardDescription className="text-center">
+              Please log in to access your resume builder.
+            </CardDescription>
+          </CardHeader>
+        </Card>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-white p-6">
@@ -149,35 +202,35 @@ const Resume = () => {
           </TabsList>
 
           <TabsContent value="personal">
-            <PersonalInfoForm userId={currentUser?.id} />
+            <PersonalInfoForm userId={currentUser.id} />
           </TabsContent>
 
           <TabsContent value="education">
-            <EducationForm userId={currentUser?.id} />
+            <EducationForm userId={currentUser.id} />
           </TabsContent>
 
           <TabsContent value="work">
-            <WorkExperienceForm userId={currentUser?.id} />
+            <WorkExperienceForm userId={currentUser.id} />
           </TabsContent>
 
           <TabsContent value="skills">
-            <SkillsForm userId={currentUser?.id} />
+            <SkillsForm userId={currentUser.id} />
           </TabsContent>
 
           <TabsContent value="projects">
-            <ProjectsForm userId={currentUser?.id} />
+            <ProjectsForm userId={currentUser.id} />
           </TabsContent>
 
           <TabsContent value="positions">
-            <PositionsForm userId={currentUser?.id} />
+            <PositionsForm userId={currentUser.id} />
           </TabsContent>
 
           <TabsContent value="achievements">
-            <AchievementsForm userId={currentUser?.id} />
+            <AchievementsForm userId={currentUser.id} />
           </TabsContent>
 
           <TabsContent value="hobbies">
-            <HobbiesForm userId={currentUser?.id} />
+            <HobbiesForm userId={currentUser.id} />
           </TabsContent>
         </Tabs>
       </div>

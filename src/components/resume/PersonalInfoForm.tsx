@@ -8,7 +8,7 @@ import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 
 interface PersonalInfoFormProps {
-  userId: string | undefined;
+  userId: string;
 }
 
 const PersonalInfoForm = ({ userId }: PersonalInfoFormProps) => {
@@ -31,50 +31,75 @@ const PersonalInfoForm = ({ userId }: PersonalInfoFormProps) => {
   }, [userId]);
 
   const fetchPersonalInfo = async () => {
-    const { data, error } = await supabase
-      .from('personal_info')
-      .select('*')
-      .eq('user_id', userId)
-      .single();
+    console.log('Fetching personal info for user:', userId);
+    try {
+      const { data, error } = await supabase
+        .from('personal_info')
+        .select('*')
+        .eq('user_id', userId)
+        .maybeSingle();
 
-    if (data && !error) {
-      setFormData({
-        full_name: data.full_name || "",
-        email: data.email || "",
-        phone: data.phone || "",
-        address: data.address || "",
-        linkedin_url: data.linkedin_url || "",
-        github_url: data.github_url || "",
-        portfolio_url: data.portfolio_url || ""
-      });
+      if (error) {
+        console.error('Error fetching personal info:', error);
+      } else if (data) {
+        console.log('Fetched personal info:', data);
+        setFormData({
+          full_name: data.full_name || "",
+          email: data.email || "",
+          phone: data.phone || "",
+          address: data.address || "",
+          linkedin_url: data.linkedin_url || "",
+          github_url: data.github_url || "",
+          portfolio_url: data.portfolio_url || ""
+        });
+      }
+    } catch (error) {
+      console.error('Error in fetchPersonalInfo:', error);
     }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!userId) return;
+    if (!userId) {
+      toast({
+        title: "Error",
+        description: "User not authenticated.",
+        variant: "destructive"
+      });
+      return;
+    }
 
     setIsLoading(true);
+    console.log('Saving personal info:', formData);
+
     try {
       const personalInfoData = {
         user_id: userId,
-        full_name: formData.full_name,
-        email: formData.email,
-        phone: formData.phone,
-        address: formData.address,
-        linkedin_url: formData.linkedin_url,
-        github_url: formData.github_url,
-        portfolio_url: formData.portfolio_url,
+        full_name: formData.full_name || null,
+        email: formData.email || null,
+        phone: formData.phone || null,
+        address: formData.address || null,
+        linkedin_url: formData.linkedin_url || null,
+        github_url: formData.github_url || null,
+        portfolio_url: formData.portfolio_url || null,
         updated_at: new Date().toISOString()
       };
 
-      const { error } = await supabase
+      console.log('Data to upsert:', personalInfoData);
+
+      const { data, error } = await supabase
         .from('personal_info')
         .upsert(personalInfoData, {
           onConflict: 'user_id'
-        });
+        })
+        .select();
 
-      if (error) throw error;
+      if (error) {
+        console.error('Supabase error:', error);
+        throw error;
+      }
+
+      console.log('Successfully saved:', data);
 
       toast({
         title: "Success",
@@ -84,7 +109,7 @@ const PersonalInfoForm = ({ userId }: PersonalInfoFormProps) => {
       console.error('Error saving personal info:', error);
       toast({
         title: "Error",
-        description: "Failed to save personal information.",
+        description: "Failed to save personal information. Please try again.",
         variant: "destructive"
       });
     } finally {
