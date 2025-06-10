@@ -1,4 +1,3 @@
-
 import { useState } from 'react';
 import {
   Dialog,
@@ -11,7 +10,7 @@ import {
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
-import { text } from 'lucide-react';
+import { Text } from 'lucide-react';
 
 interface TextEditorProps {
   onSave: (text: string) => void;
@@ -31,7 +30,7 @@ const TextEditor = ({ onSave, initialText = '' }: TextEditorProps) => {
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
         <Button variant="outline" className="flex items-center space-x-2">
-          <text className="h-4 w-4" />
+          <Text className="h-4 w-4" />
           <span>Text Editor</span>
         </Button>
       </DialogTrigger>

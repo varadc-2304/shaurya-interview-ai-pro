@@ -1,3 +1,4 @@
+
 import { useState, useEffect, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -42,6 +43,7 @@ const InterviewSession = ({ config, interviewId, userId, onEndInterview }: Inter
   const [isGeneratingQuestions, setIsGeneratingQuestions] = useState(true);
   
   const { toast } = useToast();
+  const audioRef = useRef<HTMLAudioElement | null>(null);
 
   const totalQuestions = 5;
 
