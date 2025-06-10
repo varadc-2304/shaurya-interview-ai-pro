@@ -1,9 +1,9 @@
-
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
+import { Separator } from "@/components/ui/separator";
 import { 
   Trophy, 
   Clock, 
@@ -20,9 +20,12 @@ import {
   Lightbulb,
   BarChart3,
   Award,
-  BookOpen
+  BookOpen,
+  ChevronDown,
+  ChevronUp
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 
 interface InterviewResultsProps {
   interviewId: string;
@@ -87,6 +90,7 @@ const InterviewResults = ({ interviewId, onStartNewInterview }: InterviewResults
   const [overallFeedback, setOverallFeedback] = useState('');
   const [performanceLevel, setPerformanceLevel] = useState('');
   const [overallRecommendation, setOverallRecommendation] = useState('');
+  const [expandedQuestion, setExpandedQuestion] = useState<string | null>(null);
 
   useEffect(() => {
     fetchInterviewResults();
@@ -208,26 +212,27 @@ const InterviewResults = ({ interviewId, onStartNewInterview }: InterviewResults
   };
 
   const getScoreColor = (score: number) => {
-    if (score >= 80) return "text-green-600";
-    if (score >= 60) return "text-yellow-600";
-    return "text-red-600";
+    if (score >= 85) return "text-emerald-600";
+    if (score >= 75) return "text-blue-600";
+    if (score >= 65) return "text-amber-600";
+    return "text-red-500";
   };
 
   const getScoreIcon = (score: number) => {
-    if (score >= 80) return <CheckCircle className="h-5 w-5 text-green-600" />;
-    if (score >= 60) return <AlertCircle className="h-5 w-5 text-yellow-600" />;
-    return <AlertCircle className="h-5 w-5 text-red-600" />;
+    if (score >= 85) return <CheckCircle className="h-4 w-4 text-emerald-600" />;
+    if (score >= 65) return <AlertCircle className="h-4 w-4 text-amber-600" />;
+    return <AlertCircle className="h-4 w-4 text-red-500" />;
   };
 
   const getPerformanceLevelColor = (level: string) => {
     switch (level) {
-      case 'Excellent': return 'text-green-700 bg-green-100';
-      case 'Strong': return 'text-blue-700 bg-blue-100';
-      case 'Good': return 'text-indigo-700 bg-indigo-100';
-      case 'Satisfactory': return 'text-yellow-700 bg-yellow-100';
-      case 'Needs Improvement': return 'text-orange-700 bg-orange-100';
-      case 'Weak': return 'text-red-700 bg-red-100';
-      default: return 'text-gray-700 bg-gray-100';
+      case 'Excellent': return 'text-emerald-700 bg-emerald-50 border-emerald-200';
+      case 'Strong': return 'text-blue-700 bg-blue-50 border-blue-200';
+      case 'Good': return 'text-indigo-700 bg-indigo-50 border-indigo-200';
+      case 'Satisfactory': return 'text-amber-700 bg-amber-50 border-amber-200';
+      case 'Needs Improvement': return 'text-orange-700 bg-orange-50 border-orange-200';
+      case 'Weak': return 'text-red-700 bg-red-50 border-red-200';
+      default: return 'text-gray-700 bg-gray-50 border-gray-200';
     }
   };
 
@@ -243,307 +248,271 @@ const InterviewResults = ({ interviewId, onStartNewInterview }: InterviewResults
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-white flex items-center justify-center">
-        <Card className="w-full max-w-md text-center shadow-lg border-0">
-          <CardContent className="pt-8 pb-8">
-            <Brain className="h-12 w-12 mx-auto mb-4 text-primary animate-pulse" />
-            <h2 className="text-xl font-semibold mb-2">Analyzing Results</h2>
-            <p className="text-muted-foreground">Our AI is generating your detailed performance report...</p>
-          </CardContent>
-        </Card>
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center space-y-4">
+          <div className="w-12 h-12 mx-auto bg-blue-100 rounded-full flex items-center justify-center">
+            <Brain className="h-6 w-6 text-blue-600 animate-pulse" />
+          </div>
+          <div className="space-y-2">
+            <h2 className="text-xl font-semibold text-gray-900">Analyzing Results</h2>
+            <p className="text-gray-600">Processing your interview performance...</p>
+          </div>
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-white p-6">
-      <div className="container mx-auto max-w-6xl">
-        {/* Header */}
-        <div className="text-center mb-8">
-          <div className="flex justify-center mb-4">
-            <div className="w-16 h-16 shaurya-gradient rounded-2xl flex items-center justify-center">
-              <Trophy className="h-8 w-8 text-white" />
+    <div className="min-h-screen bg-gray-50">
+      {/* Header */}
+      <div className="bg-white border-b border-gray-200">
+        <div className="max-w-5xl mx-auto px-6 py-8">
+          <div className="text-center space-y-4">
+            <div className="flex justify-center">
+              <div className="w-16 h-16 bg-gradient-to-br from-blue-600 to-blue-700 rounded-xl flex items-center justify-center shadow-lg">
+                <Trophy className="h-8 w-8 text-white" />
+              </div>
             </div>
+            <div className="space-y-2">
+              <h1 className="text-3xl font-bold text-gray-900">Interview Complete</h1>
+              <p className="text-lg text-gray-600">Your comprehensive performance analysis</p>
+            </div>
+            {performanceLevel && (
+              <Badge className={`px-4 py-2 border ${getPerformanceLevelColor(performanceLevel)} font-medium`}>
+                {performanceLevel} Performance
+              </Badge>
+            )}
           </div>
-          <h1 className="text-3xl font-bold shaurya-text-gradient mb-3">Interview Complete!</h1>
-          <p className="text-muted-foreground text-lg">
-            Here's your comprehensive performance analysis
-          </p>
-          {performanceLevel && (
-            <Badge className={`mt-2 px-4 py-2 text-sm ${getPerformanceLevelColor(performanceLevel)}`}>
-              {performanceLevel} Performance
-            </Badge>
-          )}
         </div>
+      </div>
 
-        {/* Summary Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
-          <Card className="shadow-lg border-0">
-            <CardContent className="pt-6">
-              <div className="flex items-center space-x-3">
-                <div className="p-2 bg-blue-100 rounded-lg">
-                  <Target className="h-6 w-6 text-blue-600" />
+      <div className="max-w-5xl mx-auto px-6 py-8">
+        {/* Overall Score Section */}
+        <Card className="mb-8 border-0 shadow-sm">
+          <CardContent className="p-8">
+            <div className="text-center space-y-6">
+              <div className="space-y-2">
+                <div className="flex items-center justify-center space-x-2">
+                  <Target className="h-5 w-5 text-gray-500" />
+                  <span className="text-sm font-medium text-gray-500 uppercase tracking-wide">Overall Score</span>
                 </div>
-                <div>
-                  <p className="text-sm text-muted-foreground">Overall Score</p>
-                  <p className={`text-2xl font-bold ${getScoreColor(overallScore)}`}>
-                    {overallScore}%
-                  </p>
+                <div className={`text-6xl font-bold ${getScoreColor(overallScore)}`}>
+                  {overallScore}%
                 </div>
               </div>
-            </CardContent>
-          </Card>
-
-          <Card className="shadow-lg border-0">
-            <CardContent className="pt-6">
-              <div className="flex items-center space-x-3">
-                <div className="p-2 bg-green-100 rounded-lg">
-                  <Clock className="h-6 w-6 text-green-600" />
+              <Progress value={overallScore} className="h-3 w-full max-w-md mx-auto" />
+              
+              {/* Key Metrics */}
+              <div className="grid grid-cols-3 gap-8 pt-6 border-t border-gray-100">
+                <div className="text-center space-y-1">
+                  <div className="flex items-center justify-center space-x-1 text-gray-500">
+                    <Clock className="h-4 w-4" />
+                    <span className="text-sm font-medium">Duration</span>
+                  </div>
+                  <div className="text-xl font-semibold text-gray-900">{calculateDuration()}</div>
                 </div>
-                <div>
-                  <p className="text-sm text-muted-foreground">Duration</p>
-                  <p className="text-2xl font-bold text-foreground">
-                    {calculateDuration()}
-                  </p>
+                
+                <div className="text-center space-y-1">
+                  <div className="flex items-center justify-center space-x-1 text-gray-500">
+                    <MessageSquare className="h-4 w-4" />
+                    <span className="text-sm font-medium">Questions</span>
+                  </div>
+                  <div className="text-xl font-semibold text-gray-900">{questions.length}</div>
                 </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card className="shadow-lg border-0">
-            <CardContent className="pt-6">
-              <div className="flex items-center space-x-3">
-                <div className="p-2 bg-purple-100 rounded-lg">
-                  <MessageSquare className="h-6 w-6 text-purple-600" />
-                </div>
-                <div>
-                  <p className="text-sm text-muted-foreground">Questions</p>
-                  <p className="text-2xl font-bold text-foreground">
-                    {questions.length}
-                  </p>
+                
+                <div className="text-center space-y-1">
+                  <div className="flex items-center justify-center space-x-1 text-gray-500">
+                    <Award className="h-4 w-4" />
+                    <span className="text-sm font-medium">Recommendation</span>
+                  </div>
+                  <div className="text-xl font-semibold text-gray-900">{overallRecommendation || 'Pending'}</div>
                 </div>
               </div>
-            </CardContent>
-          </Card>
-
-          <Card className="shadow-lg border-0">
-            <CardContent className="pt-6">
-              <div className="flex items-center space-x-3">
-                <div className="p-2 bg-orange-100 rounded-lg">
-                  <Award className="h-6 w-6 text-orange-600" />
-                </div>
-                <div>
-                  <p className="text-sm text-muted-foreground">Recommendation</p>
-                  <p className="text-lg font-bold text-foreground">
-                    {overallRecommendation || 'Maybe'}
-                  </p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
+            </div>
+          </CardContent>
+        </Card>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          {/* Question-wise Analysis */}
-          <div className="lg:col-span-2 space-y-6">
-            {/* Dimension Scores */}
+          {/* Main Content */}
+          <div className="lg:col-span-2 space-y-8">
+            {/* Performance Dimensions */}
             {overallDimensionScores && (
-              <Card className="shadow-lg border-0">
-                <CardHeader>
-                  <CardTitle className="flex items-center space-x-2">
-                    <Star className="h-5 w-5 text-primary" />
-                    <span>Performance Dimensions</span>
-                  </CardTitle>
-                  <CardDescription>
-                    Detailed breakdown across key evaluation criteria
+              <Card className="border-0 shadow-sm">
+                <CardHeader className="pb-4">
+                  <CardTitle className="text-xl font-semibold text-gray-900">Performance Breakdown</CardTitle>
+                  <CardDescription className="text-gray-600">
+                    Evaluation across key competency areas
                   </CardDescription>
                 </CardHeader>
-                <CardContent>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    {Object.entries(overallDimensionScores).map(([key, score]) => {
-                      const dimension = dimensionLabels[key as keyof DimensionScores];
-                      const IconComponent = dimension.icon;
-                      return (
-                        <div key={key} className="space-y-2">
-                          <div className="flex items-center justify-between">
-                            <div className="flex items-center space-x-2">
-                              <IconComponent className="h-4 w-4 text-primary" />
-                              <span className="text-sm font-medium">{dimension.label}</span>
+                <CardContent className="space-y-6">
+                  {Object.entries(overallDimensionScores).map(([key, score]) => {
+                    const dimension = dimensionLabels[key as keyof DimensionScores];
+                    const IconComponent = dimension.icon;
+                    return (
+                      <div key={key} className="space-y-3">
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center space-x-3">
+                            <div className="w-8 h-8 bg-blue-50 rounded-lg flex items-center justify-center">
+                              <IconComponent className="h-4 w-4 text-blue-600" />
                             </div>
-                            <span className={`text-sm font-bold ${getScoreColor(score * 10)}`}>
+                            <span className="font-medium text-gray-900">{dimension.label}</span>
+                          </div>
+                          <div className="flex items-center space-x-2">
+                            <span className={`font-semibold ${getScoreColor(score * 10)}`}>
                               {score}/10
                             </span>
                           </div>
-                          <Progress value={score * 10} className="h-2" />
                         </div>
-                      );
-                    })}
-                  </div>
+                        <Progress value={score * 10} className="h-2" />
+                      </div>
+                    );
+                  })}
                 </CardContent>
               </Card>
             )}
 
-            {/* Question-wise Analysis */}
-            <Card className="shadow-lg border-0">
-              <CardHeader>
-                <CardTitle className="flex items-center space-x-2">
-                  <MessageSquare className="h-5 w-5 text-primary" />
-                  <span>Question-wise Analysis</span>
-                </CardTitle>
-                <CardDescription>
-                  Detailed breakdown of your performance on each question
+            {/* Question Analysis */}
+            <Card className="border-0 shadow-sm">
+              <CardHeader className="pb-4">
+                <CardTitle className="text-xl font-semibold text-gray-900">Question Analysis</CardTitle>
+                <CardDescription className="text-gray-600">
+                  Detailed breakdown of your responses
                 </CardDescription>
               </CardHeader>
-              <CardContent className="space-y-6">
+              <CardContent className="space-y-4">
                 {questions.map((q) => (
-                  <div key={q.id} className="border rounded-lg p-4 space-y-4">
-                    <div className="flex items-start justify-between">
-                      <div className="flex-1">
-                        <div className="flex items-center space-x-2 mb-2">
-                          <Badge variant="outline">Q{q.question_number}</Badge>
-                          {getScoreIcon(q.evaluation_score || 0)}
-                          <span className={`font-semibold ${getScoreColor(q.evaluation_score || 0)}`}>
-                            {q.evaluation_score || 0}%
-                          </span>
-                          {q.confidence_level && (
-                            <Badge variant="secondary" className="text-xs">
-                              {q.confidence_level} Confidence
+                  <Collapsible 
+                    key={q.id}
+                    open={expandedQuestion === q.id}
+                    onOpenChange={(open) => setExpandedQuestion(open ? q.id : null)}
+                  >
+                    <div className="border border-gray-200 rounded-lg overflow-hidden">
+                      <CollapsibleTrigger className="w-full p-4 text-left hover:bg-gray-50 transition-colors">
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center space-x-3">
+                            <Badge variant="outline" className="text-xs font-medium">
+                              Q{q.question_number}
                             </Badge>
+                            {getScoreIcon(q.evaluation_score || 0)}
+                            <span className={`font-semibold ${getScoreColor(q.evaluation_score || 0)}`}>
+                              {q.evaluation_score || 0}%
+                            </span>
+                          </div>
+                          {expandedQuestion === q.id ? (
+                            <ChevronUp className="h-4 w-4 text-gray-500" />
+                          ) : (
+                            <ChevronDown className="h-4 w-4 text-gray-500" />
                           )}
                         </div>
-                        <p className="text-sm font-medium text-foreground mb-2">
+                        <p className="text-sm text-gray-700 mt-2 text-left font-medium">
                           {q.question_text}
                         </p>
-                      </div>
-                    </div>
-                    
-                    {q.user_response && (
-                      <div className="bg-gray-50 p-3 rounded text-xs">
-                        <p className="font-medium text-gray-700 mb-1">Your Response:</p>
-                        <p className="text-gray-600 mb-2">{q.user_response}</p>
-                      </div>
-                    )}
-                    
-                    {q.evaluation_feedback && (
-                      <div className="bg-blue-50 p-3 rounded text-xs">
-                        <p className="font-medium text-blue-700 mb-1">AI Evaluation:</p>
-                        <p className="text-blue-600 mb-2">{q.evaluation_feedback}</p>
-                      </div>
-                    )}
-
-                    {/* Dimension scores for this question */}
-                    {q.dimension_scores && (
-                      <div className="bg-purple-50 p-3 rounded">
-                        <p className="font-medium text-purple-700 mb-2 text-xs">Dimension Breakdown:</p>
-                        <div className="grid grid-cols-2 gap-2 text-xs">
-                          {Object.entries(q.dimension_scores).map(([key, score]) => (
-                            <div key={key} className="flex justify-between">
-                              <span className="text-purple-600">{dimensionLabels[key as keyof DimensionScores]?.label}:</span>
-                              <span className="font-medium">{score}/10</span>
+                      </CollapsibleTrigger>
+                      
+                      <CollapsibleContent>
+                        <div className="border-t border-gray-200 p-4 space-y-4 bg-gray-50">
+                          {q.user_response && (
+                            <div className="space-y-2">
+                              <h4 className="text-sm font-medium text-gray-700">Your Response</h4>
+                              <p className="text-sm text-gray-600 bg-white p-3 rounded border">
+                                {q.user_response}
+                              </p>
                             </div>
-                          ))}
-                        </div>
-                      </div>
-                    )}
+                          )}
+                          
+                          {q.evaluation_feedback && (
+                            <div className="space-y-2">
+                              <h4 className="text-sm font-medium text-blue-700">AI Assessment</h4>
+                              <p className="text-sm text-blue-600 bg-blue-50 p-3 rounded border border-blue-200">
+                                {q.evaluation_feedback}
+                              </p>
+                            </div>
+                          )}
 
-                    {q.strengths && q.strengths.length > 0 && (
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-xs">
-                        <div className="bg-green-50 p-2 rounded">
-                          <p className="font-medium text-green-700 mb-1">Strengths:</p>
-                          <ul className="text-green-600 list-disc list-inside">
-                            {q.strengths.map((strength, idx) => (
-                              <li key={idx}>{strength}</li>
-                            ))}
-                          </ul>
+                          {q.strengths && q.strengths.length > 0 && (
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                              <div className="space-y-2">
+                                <h4 className="text-sm font-medium text-emerald-700">Strengths</h4>
+                                <ul className="text-sm text-emerald-600 space-y-1">
+                                  {q.strengths.map((strength, idx) => (
+                                    <li key={idx} className="flex items-start space-x-2">
+                                      <CheckCircle className="h-3 w-3 mt-0.5 flex-shrink-0" />
+                                      <span>{strength}</span>
+                                    </li>
+                                  ))}
+                                </ul>
+                              </div>
+                              
+                              {q.improvements && q.improvements.length > 0 && (
+                                <div className="space-y-2">
+                                  <h4 className="text-sm font-medium text-amber-700">Areas for Growth</h4>
+                                  <ul className="text-sm text-amber-600 space-y-1">
+                                    {q.improvements.map((improvement, idx) => (
+                                      <li key={idx} className="flex items-start space-x-2">
+                                        <TrendingUp className="h-3 w-3 mt-0.5 flex-shrink-0" />
+                                        <span>{improvement}</span>
+                                      </li>
+                                    ))}
+                                  </ul>
+                                </div>
+                              )}
+                            </div>
+                          )}
                         </div>
-                        {q.improvements && q.improvements.length > 0 && (
-                          <div className="bg-orange-50 p-2 rounded">
-                            <p className="font-medium text-orange-700 mb-1">Areas for Improvement:</p>
-                            <ul className="text-orange-600 list-disc list-inside">
-                              {q.improvements.map((improvement, idx) => (
-                                <li key={idx}>{improvement}</li>
-                              ))}
-                            </ul>
-                          </div>
-                        )}
-                      </div>
-                    )}
-
-                    {/* Follow-up questions */}
-                    {q.follow_up_questions && q.follow_up_questions.length > 0 && (
-                      <div className="bg-indigo-50 p-3 rounded text-xs">
-                        <p className="font-medium text-indigo-700 mb-1">Suggested Follow-up Questions:</p>
-                        <ul className="text-indigo-600 list-disc list-inside">
-                          {q.follow_up_questions.map((question, idx) => (
-                            <li key={idx}>{question}</li>
-                          ))}
-                        </ul>
-                      </div>
-                    )}
-                    
-                    <Progress value={q.evaluation_score || 0} className="h-2" />
-                  </div>
+                      </CollapsibleContent>
+                    </div>
+                  </Collapsible>
                 ))}
               </CardContent>
             </Card>
           </div>
 
-          {/* Overall Feedback & Actions */}
+          {/* Sidebar */}
           <div className="space-y-6">
-            {/* Overall Feedback */}
-            <Card className="shadow-lg border-0">
-              <CardHeader>
-                <CardTitle className="flex items-center space-x-2">
-                  <TrendingUp className="h-5 w-5 text-primary" />
-                  <span>Overall Assessment</span>
-                </CardTitle>
+            {/* Summary */}
+            <Card className="border-0 shadow-sm">
+              <CardHeader className="pb-4">
+                <CardTitle className="text-lg font-semibold text-gray-900">Summary</CardTitle>
               </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="text-center">
-                  <div className={`text-3xl font-bold ${getScoreColor(overallScore)} mb-2`}>
+              <CardContent className="space-y-6">
+                <div className="text-center p-6 bg-blue-50 rounded-lg">
+                  <div className={`text-4xl font-bold ${getScoreColor(overallScore)} mb-2`}>
                     {overallScore}%
                   </div>
-                  <Progress value={overallScore} className="h-3 mb-4" />
+                  <Progress value={overallScore} className="h-2 mb-4" />
                   {performanceLevel && (
-                    <Badge className={`mb-4 px-3 py-1 ${getPerformanceLevelColor(performanceLevel)}`}>
+                    <Badge className={`border ${getPerformanceLevelColor(performanceLevel)} font-medium`}>
                       {performanceLevel}
                     </Badge>
                   )}
                 </div>
                 
-                <div className="bg-blue-50 p-4 rounded-lg">
-                  <p className="text-sm text-gray-700 leading-relaxed">
-                    {overallFeedback || 'Your interview performance shows good communication skills with room for improvement in providing specific examples and demonstrating deeper domain knowledge.'}
+                <div className="space-y-3 text-sm text-gray-600">
+                  <p className="leading-relaxed">
+                    {overallFeedback || 'Your interview performance demonstrates strong communication skills with opportunities for growth in technical depth and specific examples.'}
                   </p>
                 </div>
 
-                {/* Cultural Fit Assessment */}
-                {questions.some(q => q.cultural_fit) && (
-                  <div className="bg-green-50 p-4 rounded-lg">
-                    <h4 className="font-medium text-sm mb-2 text-green-800">Cultural Fit Assessment:</h4>
-                    {questions.filter(q => q.cultural_fit).map((q, idx) => (
-                      <div key={idx} className="text-xs text-green-700">
-                        <div className="flex items-center justify-between mb-1">
-                          <span>Rating:</span>
-                          <Badge variant="outline" className="text-xs">
-                            {q.cultural_fit?.rating}
-                          </Badge>
-                        </div>
-                        <p>{q.cultural_fit?.reasoning}</p>
-                      </div>
-                    ))}
-                  </div>
-                )}
-
                 {interviewData && (
-                  <div className="pt-2">
-                    <h4 className="font-medium text-sm mb-2">Interview Details:</h4>
-                    <div className="text-xs space-y-1 text-muted-foreground">
-                      <div>• Role: {interviewData.job_role}</div>
-                      <div>• Domain: {interviewData.domain}</div>
-                      <div>• Experience Level: {interviewData.experience}</div>
-                      <div>• Question Type: {interviewData.question_type}</div>
-                      <div>• Duration: {calculateDuration()}</div>
+                  <div className="pt-4 border-t border-gray-100">
+                    <h4 className="font-medium text-gray-900 mb-3">Interview Details</h4>
+                    <div className="space-y-2 text-sm text-gray-600">
+                      <div className="flex justify-between">
+                        <span>Role:</span>
+                        <span className="font-medium text-gray-900">{interviewData.job_role}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span>Domain:</span>
+                        <span className="font-medium text-gray-900">{interviewData.domain}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span>Experience:</span>
+                        <span className="font-medium text-gray-900">{interviewData.experience}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span>Type:</span>
+                        <span className="font-medium text-gray-900">{interviewData.question_type}</span>
+                      </div>
                     </div>
                   </div>
                 )}
@@ -551,22 +520,22 @@ const InterviewResults = ({ interviewId, onStartNewInterview }: InterviewResults
             </Card>
 
             {/* Actions */}
-            <Card className="shadow-lg border-0">
-              <CardHeader>
-                <CardTitle className="text-lg">Next Steps</CardTitle>
+            <Card className="border-0 shadow-sm">
+              <CardHeader className="pb-4">
+                <CardTitle className="text-lg font-semibold text-gray-900">Next Steps</CardTitle>
               </CardHeader>
               <CardContent className="space-y-3">
                 <Button 
                   onClick={onStartNewInterview}
-                  className="w-full shaurya-gradient hover:opacity-90 transition-opacity"
+                  className="w-full bg-blue-600 hover:bg-blue-700 text-white font-medium"
                 >
                   <RotateCcw className="mr-2 h-4 w-4" />
                   Start New Interview
                 </Button>
                 
-                <Button variant="outline" className="w-full">
+                <Button variant="outline" className="w-full font-medium">
                   <Download className="mr-2 h-4 w-4" />
-                  Download Detailed Report
+                  Download Report
                 </Button>
               </CardContent>
             </Card>
