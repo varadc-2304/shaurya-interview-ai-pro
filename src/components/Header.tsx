@@ -1,6 +1,7 @@
 
 import { Button } from "@/components/ui/button";
-import { User, LogOut } from "lucide-react";
+import { User, LogOut, FileText } from "lucide-react";
+import { Link } from "react-router-dom";
 
 interface HeaderProps {
   isAuthenticated: boolean;
@@ -23,6 +24,12 @@ const Header = ({ isAuthenticated, onLogin, onLogout }: HeaderProps) => {
           <div className="flex items-center space-x-4">
             {isAuthenticated ? (
               <>
+                <Link to="/resume">
+                  <Button variant="outline" size="sm" className="flex items-center space-x-2">
+                    <FileText size={16} />
+                    <span>Resume</span>
+                  </Button>
+                </Link>
                 <div className="flex items-center space-x-2 text-sm text-muted-foreground">
                   <User size={16} />
                   <span>Welcome back!</span>
