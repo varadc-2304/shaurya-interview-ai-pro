@@ -285,7 +285,8 @@ const InterviewSession = ({ config, interviewId, userId, onEndInterview }: Inter
           question: question.text,
           answer: userResponse,
           jobRole: config.jobRole,
-          domain: config.domain
+          domain: config.domain,
+          experienceLevel: config.experienceLevel
         }
       });
 
@@ -293,14 +294,20 @@ const InterviewSession = ({ config, interviewId, userId, onEndInterview }: Inter
 
       console.log('Evaluation result:', data);
 
-      // Update database with evaluation
+      // Update database with comprehensive evaluation data
       await supabase
         .from('interview_questions')
         .update({
           evaluation_score: data?.score || 0,
           evaluation_feedback: data?.feedback || '',
           strengths: data?.strengths || [],
-          improvements: data?.improvements || []
+          improvements: data?.improvements || [],
+          dimension_scores: data?.dimension_scores || null,
+          detailed_feedback: data?.detailed_feedback || null,
+          cultural_fit: data?.cultural_fit || null,
+          recommendation: data?.recommendation || null,
+          confidence_level: data?.confidence_level || null,
+          follow_up_questions: data?.follow_up_questions || []
         })
         .eq('interview_id', interviewId)
         .eq('question_number', question.number);

@@ -178,10 +178,18 @@ const InterviewResults = ({ interviewId, onStartNewInterview }: InterviewResults
     else if (avgScore >= 50) setPerformanceLevel('Needs Improvement');
     else setPerformanceLevel('Weak');
 
-    // Set overall recommendation based on latest question's recommendation
-    const latestQuestion = questionsData[questionsData.length - 1];
-    if (latestQuestion?.recommendation) {
-      setOverallRecommendation(latestQuestion.recommendation);
+    // Set overall recommendation - get the most recent recommendation or determine based on score
+    const questionsWithRecommendations = questionsData.filter(q => q.recommendation && q.recommendation !== 'Pending');
+    if (questionsWithRecommendations.length > 0) {
+      // Use the latest recommendation
+      const latestRecommendation = questionsWithRecommendations[questionsWithRecommendations.length - 1].recommendation;
+      setOverallRecommendation(latestRecommendation || 'Under Review');
+    } else {
+      // Fallback to score-based recommendation
+      if (avgScore >= 80) setOverallRecommendation('Strong Hire');
+      else if (avgScore >= 70) setOverallRecommendation('Hire');
+      else if (avgScore >= 60) setOverallRecommendation('Maybe');
+      else setOverallRecommendation('No Hire');
     }
 
     setOverallFeedback(generateOverallFeedback(questionsData, avgScore));
@@ -232,6 +240,16 @@ const InterviewResults = ({ interviewId, onStartNewInterview }: InterviewResults
       case 'Satisfactory': return 'text-amber-700 bg-amber-50 border-amber-200';
       case 'Needs Improvement': return 'text-orange-700 bg-orange-50 border-orange-200';
       case 'Weak': return 'text-red-700 bg-red-50 border-red-200';
+      default: return 'text-gray-700 bg-gray-50 border-gray-200';
+    }
+  };
+
+  const getRecommendationColor = (recommendation: string) => {
+    switch (recommendation) {
+      case 'Strong Hire': return 'text-emerald-700 bg-emerald-50 border-emerald-200';
+      case 'Hire': return 'text-blue-700 bg-blue-50 border-blue-200';
+      case 'Maybe': return 'text-amber-700 bg-amber-50 border-amber-200';
+      case 'No Hire': return 'text-red-700 bg-red-50 border-red-200';
       default: return 'text-gray-700 bg-gray-50 border-gray-200';
     }
   };
@@ -325,7 +343,9 @@ const InterviewResults = ({ interviewId, onStartNewInterview }: InterviewResults
                     <Award className="h-4 w-4" />
                     <span className="text-sm font-medium">Recommendation</span>
                   </div>
-                  <div className="text-xl font-semibold text-gray-900">{overallRecommendation || 'Pending'}</div>
+                  <Badge className={`border ${getRecommendationColor(overallRecommendation)} font-medium`}>
+                    {overallRecommendation}
+                  </Badge>
                 </div>
               </div>
             </div>
