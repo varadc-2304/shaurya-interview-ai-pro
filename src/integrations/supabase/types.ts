@@ -37,7 +37,15 @@ export type Database = {
           issuing_organization?: string | null
           user_id?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "achievements_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "auth"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       articles: {
         Row: {
@@ -606,7 +614,15 @@ export type Database = {
           updated_at?: string
           user_id?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "education_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "auth"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       hobbies_activities: {
         Row: {
@@ -630,7 +646,15 @@ export type Database = {
           id?: string
           user_id?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "hobbies_activities_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "auth"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       interview_questions: {
         Row: {
@@ -985,7 +1009,15 @@ export type Database = {
           updated_at?: string
           user_id?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "personal_info_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: true
+            referencedRelation: "auth"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       positions_of_responsibility: {
         Row: {
@@ -1021,7 +1053,15 @@ export type Database = {
           updated_at?: string
           user_id?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "positions_of_responsibility_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "auth"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       proctoring_sessions: {
         Row: {
@@ -1182,7 +1222,15 @@ export type Database = {
           updated_at?: string
           user_id?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "projects_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "auth"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       question_submissions: {
         Row: {
@@ -1364,7 +1412,15 @@ export type Database = {
           skill_name?: string
           user_id?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "resume_skills_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "auth"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       resume_summary: {
         Row: {
@@ -1388,7 +1444,15 @@ export type Database = {
           updated_at?: string
           user_id?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "resume_summary_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "auth"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       submissions: {
         Row: {
@@ -1794,7 +1858,15 @@ export type Database = {
           updated_at?: string
           user_id?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "work_experience_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "auth"
+            referencedColumns: ["id"]
+          },
+        ]
       }
     }
     Views: {

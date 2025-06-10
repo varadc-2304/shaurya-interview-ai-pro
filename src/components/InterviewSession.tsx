@@ -17,6 +17,7 @@ import {
 import { InterviewConfig } from "./InterviewSetup";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
+import ResponseComposer from './ResponseComposer';
 
 interface InterviewSessionProps {
   config: InterviewConfig;
@@ -34,16 +35,11 @@ interface Question {
 const InterviewSession = ({ config, interviewId, userId, onEndInterview }: InterviewSessionProps) => {
   const [questions, setQuestions] = useState<Question[]>([]);
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
-  const [isRecording, setIsRecording] = useState(false);
   const [isSpeaking, setIsSpeaking] = useState(false);
   const [progress, setProgress] = useState(0);
   const [duration, setDuration] = useState(0);
   const [isProcessing, setIsProcessing] = useState(false);
   const [isGeneratingQuestions, setIsGeneratingQuestions] = useState(true);
-  
-  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
-  const audioChunksRef = useRef<Blob[]>([]);
-  const audioRef = useRef<HTMLAudioElement | null>(null);
   
   const { toast } = useToast();
 
@@ -166,130 +162,108 @@ const InterviewSession = ({ config, interviewId, userId, onEndInterview }: Inter
     return `${mins}:${secs.toString().padStart(2, '0')}`;
   };
 
-  const startRecording = async () => {
+  const handleEnhancedResponse = async (response: {
+    audioBlob: Blob | null;
+    textContent: string;
+    codeContent: string;
+    codeLanguage: string;
+  }) => {
     try {
-      console.log('Starting audio recording...');
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      mediaRecorderRef.current = new MediaRecorder(stream, {
-        mimeType: 'audio/webm;codecs=opus'
-      });
-      audioChunksRef.current = [];
-
-      mediaRecorderRef.current.ondataavailable = (event) => {
-        console.log('Audio data available, size:', event.data.size);
-        audioChunksRef.current.push(event.data);
-      };
-
-      mediaRecorderRef.current.onstop = async () => {
-        console.log('Recording stopped, processing audio...');
-        const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/webm' });
-        console.log('Audio blob created, size:', audioBlob.size);
-        
-        await handleAudioRecorded(audioBlob);
-        stream.getTracks().forEach(track => track.stop());
-      };
-
-      mediaRecorderRef.current.start();
-      setIsRecording(true);
-      console.log('Recording started successfully');
-    } catch (error) {
-      console.error('Error starting recording:', error);
-      toast({
-        title: "Recording Error",
-        description: "Failed to start recording. Please check microphone permissions.",
-        variant: "destructive"
-      });
-    }
-  };
-
-  const stopRecording = () => {
-    console.log('Stopping recording...');
-    if (mediaRecorderRef.current && isRecording) {
-      mediaRecorderRef.current.stop();
-      setIsRecording(false);
       setIsProcessing(true);
-    }
-  };
-
-  const handleAudioRecorded = async (audioBlob: Blob) => {
-    try {
-      console.log('Processing recorded audio, size:', audioBlob.size);
+      console.log('Processing enhanced response:', response);
       
-      // Create unique filename
-      const fileName = `interview_${interviewId}_q${currentQuestionIndex + 1}_${Date.now()}.webm`;
-      console.log('Uploading to storage with filename:', fileName);
+      let transcribedText = '';
+      
+      // Process audio if provided
+      if (response.audioBlob) {
+        console.log('Processing audio, size:', response.audioBlob.size);
+        
+        // Create unique filename
+        const fileName = `interview_${interviewId}_q${currentQuestionIndex + 1}_${Date.now()}.webm`;
+        console.log('Uploading to storage with filename:', fileName);
 
-      // Upload to Supabase storage
-      const { data: uploadData, error: uploadError } = await supabase.storage
-        .from('audio_files')
-        .upload(fileName, audioBlob, {
-          contentType: 'audio/webm'
+        // Upload to Supabase storage
+        const { data: uploadData, error: uploadError } = await supabase.storage
+          .from('audio_files')
+          .upload(fileName, response.audioBlob, {
+            contentType: 'audio/webm'
+          });
+
+        if (uploadError) {
+          console.error('Storage upload error:', uploadError);
+          throw uploadError;
+        }
+
+        console.log('Upload successful:', uploadData);
+
+        // Get public URL
+        const { data: { publicUrl } } = supabase.storage
+          .from('audio_files')
+          .getPublicUrl(fileName);
+
+        console.log('Public URL obtained:', publicUrl);
+
+        // Send URL to speech-to-text function
+        console.log('Sending to speech-to-text function...');
+        const { data: transcriptionData, error: transcriptionError } = await supabase.functions.invoke('speech-to-text', {
+          body: { audioUrl: publicUrl }
         });
 
-      if (uploadError) {
-        console.error('Storage upload error:', uploadError);
-        throw uploadError;
+        if (transcriptionError) {
+          console.error('Speech-to-text error:', transcriptionError);
+          throw transcriptionError;
+        }
+
+        console.log('Transcription result:', transcriptionData);
+        transcribedText = transcriptionData?.text || '';
+
+        // Clean up the uploaded file after processing
+        await supabase.storage
+          .from('audio_files')
+          .remove([fileName]);
       }
 
-      console.log('Upload successful:', uploadData);
+      // Combine all response components
+      const combinedResponse = [
+        transcribedText && `Speech: ${transcribedText}`,
+        response.textContent && `Text: ${response.textContent}`,
+        response.codeContent && `Code (${response.codeLanguage}): ${response.codeContent}`
+      ].filter(Boolean).join('\n\n');
 
-      // Get public URL
-      const { data: { publicUrl } } = supabase.storage
-        .from('audio_files')
-        .getPublicUrl(fileName);
-
-      console.log('Public URL obtained:', publicUrl);
-
-      // Send URL to speech-to-text function
-      console.log('Sending to speech-to-text function...');
-      const { data: transcriptionData, error: transcriptionError } = await supabase.functions.invoke('speech-to-text', {
-        body: { audioUrl: publicUrl }
-      });
-
-      if (transcriptionError) {
-        console.error('Speech-to-text error:', transcriptionError);
-        throw transcriptionError;
-      }
-
-      console.log('Transcription result:', transcriptionData);
-
-      const userResponse = transcriptionData?.text || '';
-      console.log('User response text:', userResponse);
-      
-      if (!userResponse.trim()) {
+      if (!combinedResponse.trim()) {
         toast({
-          title: "No Speech Detected",
-          description: "Please try recording again and speak clearly.",
+          title: "No Response Detected",
+          description: "Please provide at least one type of response.",
           variant: "destructive"
         });
         return;
       }
 
-      // Evaluate response
+      console.log('Combined response:', combinedResponse);
+
+      // Evaluate combined response
       const currentQuestion = questions[currentQuestionIndex];
-      await evaluateResponse(currentQuestion, userResponse);
+      await evaluateResponse(currentQuestion, combinedResponse);
       
-      // Update interview question with response
+      // Update interview question with all response components
       await supabase
         .from('interview_questions')
         .update({
-          user_response: userResponse
+          user_response: transcribedText,
+          user_text_response: response.textContent,
+          user_code_response: response.codeContent,
+          response_language: response.codeContent ? response.codeLanguage : null
         })
         .eq('interview_id', interviewId)
         .eq('question_number', currentQuestionIndex + 1);
 
-      // Clean up the uploaded file after processing
-      await supabase.storage
-        .from('audio_files')
-        .remove([fileName]);
-
       toast({
-        title: "Response Recorded",
-        description: "Your answer has been processed successfully.",
+        title: "Response Submitted",
+        description: "Your comprehensive answer has been processed successfully.",
       });
 
     } catch (error) {
-      console.error('Error processing audio:', error);
+      console.error('Error processing enhanced response:', error);
       toast({
         title: "Processing Error",
         description: `Failed to process your response: ${error.message}`,
@@ -469,48 +443,12 @@ const InterviewSession = ({ config, interviewId, userId, onEndInterview }: Inter
 
           {/* Controls */}
           <div className="space-y-6">
-            {/* Recording Controls */}
-            <Card className="shadow-lg border-0">
-              <CardHeader>
-                <CardTitle className="text-lg">Your Response</CardTitle>
-                <CardDescription>Record your answer to the question</CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="flex justify-center">
-                  <Button
-                    onClick={isRecording ? stopRecording : startRecording}
-                    size="lg"
-                    className={`w-20 h-20 rounded-full ${
-                      isRecording 
-                        ? 'bg-red-500 hover:bg-red-600 animate-pulse' 
-                        : 'shaurya-gradient hover:opacity-90'
-                    } transition-all`}
-                    disabled={isProcessing || isSpeaking}
-                  >
-                    {isRecording ? (
-                      <MicOff className="h-8 w-8" />
-                    ) : (
-                      <Mic className="h-8 w-8" />
-                    )}
-                  </Button>
-                </div>
-                
-                <div className="text-center">
-                  <p className="text-sm text-muted-foreground">
-                    {isProcessing ? (
-                      <span className="flex items-center justify-center space-x-2">
-                        <Brain className="h-4 w-4 animate-spin" />
-                        <span>Processing your response...</span>
-                      </span>
-                    ) : isRecording ? (
-                      "Recording... Click to stop"
-                    ) : (
-                      "Click to start recording"
-                    )}
-                  </p>
-                </div>
-              </CardContent>
-            </Card>
+            {/* Enhanced Response Composer */}
+            <ResponseComposer
+              onSubmitResponse={handleEnhancedResponse}
+              isProcessing={isProcessing}
+              disabled={isSpeaking}
+            />
 
             {/* Navigation */}
             <Card className="shadow-lg border-0">
@@ -519,7 +457,7 @@ const InterviewSession = ({ config, interviewId, userId, onEndInterview }: Inter
                   onClick={handleNextQuestion}
                   variant="outline"
                   className="w-full"
-                  disabled={isRecording || isProcessing}
+                  disabled={isProcessing}
                 >
                   <SkipForward className="mr-2 h-4 w-4" />
                   {currentQuestionIndex < questions.length - 1 ? 'Next Question' : 'Finish Interview'}
@@ -529,7 +467,7 @@ const InterviewSession = ({ config, interviewId, userId, onEndInterview }: Inter
                   onClick={handleFinishInterview}
                   variant="destructive"
                   className="w-full"
-                  disabled={isRecording || isProcessing}
+                  disabled={isProcessing}
                 >
                   <StopCircle className="mr-2 h-4 w-4" />
                   End Interview
