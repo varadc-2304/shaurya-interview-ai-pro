@@ -26,20 +26,10 @@ const AutoLogin = () => {
       }
 
       try {
-        // Validate the token and get user details
+        // First, validate the token
         const { data: tokenData, error: tokenError } = await supabase
           .from('auto_login_tokens')
-          .select(`
-            user_id,
-            expires_at,
-            used,
-            auth!inner (
-              id,
-              email,
-              name,
-              role
-            )
-          `)
+          .select('user_id, expires_at, used')
           .eq('token', token)
           .eq('used', false)
           .single();
@@ -68,6 +58,23 @@ const AutoLogin = () => {
           return;
         }
 
+        // Get user details from auth table
+        const { data: userData, error: userError } = await supabase
+          .from('auth')
+          .select('id, email, name, role')
+          .eq('id', tokenData.user_id)
+          .single();
+
+        if (userError || !userData) {
+          toast({
+            title: "User Not Found",
+            description: "The user associated with this token was not found.",
+            variant: "destructive"
+          });
+          navigate('/');
+          return;
+        }
+
         // Mark token as used
         await supabase
           .from('auto_login_tokens')
@@ -75,20 +82,19 @@ const AutoLogin = () => {
           .eq('token', token);
 
         // Set up the user session in the parent app
-        // Since we're using a custom auth system, we'll simulate the login
-        const userData = {
-          id: tokenData.auth.id,
-          email: tokenData.auth.email,
-          name: tokenData.auth.name || tokenData.auth.email.split('@')[0],
-          role: tokenData.auth.role
+        const userSessionData = {
+          id: userData.id,
+          email: userData.email,
+          name: userData.name || userData.email.split('@')[0],
+          role: userData.role
         };
 
         // Store user data in sessionStorage for the main app to pick up
-        sessionStorage.setItem('auto_login_user', JSON.stringify(userData));
+        sessionStorage.setItem('auto_login_user', JSON.stringify(userSessionData));
 
         toast({
           title: "Login Successful",
-          description: `Welcome back, ${userData.name}!`
+          description: `Welcome back, ${userSessionData.name}!`
         });
 
         // Redirect to home page
