@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -63,6 +64,9 @@ interface InterviewQuestion {
   question_number: number;
   question_text: string;
   user_response: string;
+  user_text_response?: string;
+  user_code_response?: string;
+  response_language?: string;
   evaluation_score: number;
   evaluation_feedback: string;
   strengths: string[];
@@ -104,6 +108,7 @@ const InterviewResults = ({ interviewId, onStartNewInterview }: InterviewResults
   const fetchInterviewResults = async () => {
     try {
       setLoading(true);
+      console.log('Fetching interview results for ID:', interviewId);
 
       const { data: interview, error: interviewError } = await supabase
         .from('interviews')
@@ -111,7 +116,12 @@ const InterviewResults = ({ interviewId, onStartNewInterview }: InterviewResults
         .eq('id', interviewId)
         .single();
 
-      if (interviewError) throw interviewError;
+      if (interviewError) {
+        console.error('Error fetching interview:', interviewError);
+        throw interviewError;
+      }
+      
+      console.log('Interview data fetched:', interview);
       setInterviewData(interview);
 
       const { data: questionsData, error: questionsError } = await supabase
@@ -120,24 +130,51 @@ const InterviewResults = ({ interviewId, onStartNewInterview }: InterviewResults
         .eq('interview_id', interviewId)
         .order('question_number');
 
-      if (questionsError) throw questionsError;
+      if (questionsError) {
+        console.error('Error fetching questions:', questionsError);
+        throw questionsError;
+      }
+      
+      console.log('Questions data fetched:', questionsData);
       setQuestions(questionsData || []);
 
       if (questionsData && questionsData.length > 0) {
         calculateOverallMetrics(questionsData);
         generatePersonalizedSummary(questionsData, interview);
+      } else {
+        console.warn('No questions found for interview');
+        // Set default values when no questions are found
+        setOverallScore(0);
+        setPerformanceLevel('No Data');
+        setOverallRecommendation('Incomplete');
+        setPersonalizedSummary('No interview data available to analyze.');
       }
 
     } catch (error) {
       console.error('Error fetching interview results:', error);
+      // Set error state values
+      setOverallScore(0);
+      setPerformanceLevel('Error');
+      setOverallRecommendation('Error');
+      setPersonalizedSummary('An error occurred while loading your interview results.');
     } finally {
       setLoading(false);
     }
   };
 
   const generatePersonalizedSummary = (questionsData: InterviewQuestion[], interview: InterviewData) => {
-    const validScores = questionsData.filter(q => q.evaluation_score !== null);
+    console.log('Generating personalized summary for questions:', questionsData);
+    
+    const validScores = questionsData.filter(q => q.evaluation_score !== null && q.evaluation_score !== undefined);
+    console.log('Valid scores found:', validScores.length);
+    
+    if (validScores.length === 0) {
+      setPersonalizedSummary('Your interview responses are still being processed. Please check back shortly.');
+      return;
+    }
+    
     const avgScore = validScores.reduce((sum, q) => sum + q.evaluation_score, 0) / validScores.length;
+    console.log('Average score calculated:', avgScore);
     
     const allStrengths = questionsData.flatMap(q => q.strengths || []);
     const allImprovements = questionsData.flatMap(q => q.improvements || []);
@@ -164,15 +201,29 @@ const InterviewResults = ({ interviewId, onStartNewInterview }: InterviewResults
   };
 
   const calculateOverallMetrics = (questionsData: InterviewQuestion[]) => {
-    const validScores = questionsData.filter(q => q.evaluation_score !== null);
-    if (validScores.length === 0) return;
+    console.log('Calculating overall metrics for questions:', questionsData);
+    
+    const validScores = questionsData.filter(q => q.evaluation_score !== null && q.evaluation_score !== undefined);
+    console.log('Questions with valid scores:', validScores.length);
+    
+    if (validScores.length === 0) {
+      console.log('No valid scores found, setting defaults');
+      setOverallScore(0);
+      setPerformanceLevel('Pending');
+      setOverallRecommendation('Under Review');
+      return;
+    }
 
     // Calculate overall score
     const avgScore = validScores.reduce((sum, q) => sum + q.evaluation_score, 0) / validScores.length;
-    setOverallScore(Math.round(avgScore));
+    const roundedScore = Math.round(avgScore);
+    console.log('Calculated average score:', avgScore, 'rounded:', roundedScore);
+    setOverallScore(roundedScore);
 
     // Calculate dimension averages if available
     const questionsWithDimensions = questionsData.filter(q => q.dimension_scores);
+    console.log('Questions with dimension scores:', questionsWithDimensions.length);
+    
     if (questionsWithDimensions.length > 0) {
       const dimensions: DimensionScores = {
         technical_accuracy: 0,
@@ -444,102 +495,129 @@ const InterviewResults = ({ interviewId, onStartNewInterview }: InterviewResults
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-6">
-                {questions.map((q) => (
-                  <Collapsible 
-                    key={q.id}
-                    open={expandedQuestion === q.id}
-                    onOpenChange={(open) => setExpandedQuestion(open ? q.id : null)}
-                  >
-                    <div className="border border-gray-200 rounded-xl overflow-hidden shadow-sm bg-white">
-                      <CollapsibleTrigger className="w-full p-6 text-left hover:bg-gray-50 transition-colors">
-                        <div className="flex items-center justify-between">
-                          <div className="flex items-center space-x-4">
-                            <Badge variant="outline" className="text-sm font-semibold px-3 py-1">
-                              Q{q.question_number}
-                            </Badge>
-                            {getScoreIcon(q.evaluation_score || 0)}
-                            <span className={`font-bold text-lg ${getScoreColor(q.evaluation_score || 0)}`}>
-                              {q.evaluation_score || 0}%
-                            </span>
+                {questions.length === 0 ? (
+                  <div className="text-center py-8">
+                    <MessageSquare className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+                    <p className="text-gray-500">No interview questions found</p>
+                  </div>
+                ) : (
+                  questions.map((q) => (
+                    <Collapsible 
+                      key={q.id}
+                      open={expandedQuestion === q.id}
+                      onOpenChange={(open) => setExpandedQuestion(open ? q.id : null)}
+                    >
+                      <div className="border border-gray-200 rounded-xl overflow-hidden shadow-sm bg-white">
+                        <CollapsibleTrigger className="w-full p-6 text-left hover:bg-gray-50 transition-colors">
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center space-x-4">
+                              <Badge variant="outline" className="text-sm font-semibold px-3 py-1">
+                                Q{q.question_number}
+                              </Badge>
+                              {getScoreIcon(q.evaluation_score || 0)}
+                              <span className={`font-bold text-lg ${getScoreColor(q.evaluation_score || 0)}`}>
+                                {q.evaluation_score || 0}%
+                              </span>
+                            </div>
+                            {expandedQuestion === q.id ? (
+                              <ChevronUp className="h-5 w-5 text-gray-500" />
+                            ) : (
+                              <ChevronDown className="h-5 w-5 text-gray-500" />
+                            )}
                           </div>
-                          {expandedQuestion === q.id ? (
-                            <ChevronUp className="h-5 w-5 text-gray-500" />
-                          ) : (
-                            <ChevronDown className="h-5 w-5 text-gray-500" />
-                          )}
-                        </div>
-                        <p className="text-gray-700 mt-4 text-left font-medium text-lg leading-relaxed">
-                          {q.question_text}
-                        </p>
-                      </CollapsibleTrigger>
-                      
-                      <CollapsibleContent>
-                        <div className="border-t border-gray-200 p-6 space-y-6 bg-gray-50">
-                          {q.user_response && (
-                            <div className="space-y-3">
-                              <h4 className="font-semibold text-gray-800 flex items-center space-x-2">
-                                <MessageSquare className="h-4 w-4" />
-                                <span>Your Response</span>
-                              </h4>
-                              <p className="text-gray-700 bg-white p-4 rounded-lg border leading-relaxed">
-                                {q.user_response}
-                              </p>
-                            </div>
-                          )}
-                          
-                          {q.evaluation_feedback && (
-                            <div className="space-y-3">
-                              <h4 className="font-semibold text-blue-800 flex items-center space-x-2">
-                                <Brain className="h-4 w-4" />
-                                <span>AI Assessment</span>
-                              </h4>
-                              <p className="text-blue-700 bg-blue-50 p-4 rounded-lg border border-blue-200 leading-relaxed">
-                                {q.evaluation_feedback}
-                              </p>
-                            </div>
-                          )}
-
-                          {/* Enhanced Strengths and Improvements */}
-                          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                            {q.strengths && q.strengths.length > 0 && (
+                          <p className="text-gray-700 mt-4 text-left font-medium text-lg leading-relaxed">
+                            {q.question_text}
+                          </p>
+                        </CollapsibleTrigger>
+                        
+                        <CollapsibleContent>
+                          <div className="border-t border-gray-200 p-6 space-y-6 bg-gray-50">
+                            {/* Combined User Response */}
+                            {(q.user_response || q.user_text_response || q.user_code_response) && (
                               <div className="space-y-3">
-                                <h4 className="font-semibold text-emerald-800 flex items-center space-x-2">
-                                  <ThumbsUp className="h-4 w-4" />
-                                  <span>Strengths</span>
+                                <h4 className="font-semibold text-gray-800 flex items-center space-x-2">
+                                  <MessageSquare className="h-4 w-4" />
+                                  <span>Your Response</span>
                                 </h4>
-                                <div className="space-y-2">
-                                  {q.strengths.map((strength, idx) => (
-                                    <div key={idx} className="flex items-start space-x-3 p-3 bg-emerald-50 rounded-lg border border-emerald-200">
-                                      <CheckCircle className="h-4 w-4 mt-0.5 flex-shrink-0 text-emerald-600" />
-                                      <span className="text-emerald-700 leading-relaxed">{strength}</span>
+                                <div className="space-y-3">
+                                  {q.user_response && (
+                                    <div className="bg-white p-4 rounded-lg border">
+                                      <p className="text-sm text-gray-600 mb-2">Speech Response:</p>
+                                      <p className="text-gray-700 leading-relaxed">{q.user_response}</p>
                                     </div>
-                                  ))}
+                                  )}
+                                  {q.user_text_response && (
+                                    <div className="bg-white p-4 rounded-lg border">
+                                      <p className="text-sm text-gray-600 mb-2">Text Response:</p>
+                                      <p className="text-gray-700 leading-relaxed">{q.user_text_response}</p>
+                                    </div>
+                                  )}
+                                  {q.user_code_response && (
+                                    <div className="bg-white p-4 rounded-lg border">
+                                      <p className="text-sm text-gray-600 mb-2">Code Response ({q.response_language}):</p>
+                                      <pre className="text-gray-700 bg-gray-100 p-3 rounded text-sm overflow-x-auto">
+                                        <code>{q.user_code_response}</code>
+                                      </pre>
+                                    </div>
+                                  )}
                                 </div>
                               </div>
                             )}
                             
-                            {q.improvements && q.improvements.length > 0 && (
+                            {q.evaluation_feedback && (
                               <div className="space-y-3">
-                                <h4 className="font-semibold text-amber-800 flex items-center space-x-2">
-                                  <AlertTriangle className="h-4 w-4" />
-                                  <span>Areas for Growth</span>
+                                <h4 className="font-semibold text-blue-800 flex items-center space-x-2">
+                                  <Brain className="h-4 w-4" />
+                                  <span>AI Assessment</span>
                                 </h4>
-                                <div className="space-y-2">
-                                  {q.improvements.map((improvement, idx) => (
-                                    <div key={idx} className="flex items-start space-x-3 p-3 bg-amber-50 rounded-lg border border-amber-200">
-                                      <TrendingUp className="h-4 w-4 mt-0.5 flex-shrink-0 text-amber-600" />
-                                      <span className="text-amber-700 leading-relaxed">{improvement}</span>
-                                    </div>
-                                  ))}
-                                </div>
+                                <p className="text-blue-700 bg-blue-50 p-4 rounded-lg border border-blue-200 leading-relaxed">
+                                  {q.evaluation_feedback}
+                                </p>
                               </div>
                             )}
+
+                            {/* Enhanced Strengths and Improvements */}
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                              {q.strengths && q.strengths.length > 0 && (
+                                <div className="space-y-3">
+                                  <h4 className="font-semibold text-emerald-800 flex items-center space-x-2">
+                                    <ThumbsUp className="h-4 w-4" />
+                                    <span>Strengths</span>
+                                  </h4>
+                                  <div className="space-y-2">
+                                    {q.strengths.map((strength, idx) => (
+                                      <div key={idx} className="flex items-start space-x-3 p-3 bg-emerald-50 rounded-lg border border-emerald-200">
+                                        <CheckCircle className="h-4 w-4 mt-0.5 flex-shrink-0 text-emerald-600" />
+                                        <span className="text-emerald-700 leading-relaxed">{strength}</span>
+                                      </div>
+                                    ))}
+                                  </div>
+                                </div>
+                              )}
+                              
+                              {q.improvements && q.improvements.length > 0 && (
+                                <div className="space-y-3">
+                                  <h4 className="font-semibold text-amber-800 flex items-center space-x-2">
+                                    <AlertTriangle className="h-4 w-4" />
+                                    <span>Areas for Growth</span>
+                                  </h4>
+                                  <div className="space-y-2">
+                                    {q.improvements.map((improvement, idx) => (
+                                      <div key={idx} className="flex items-start space-x-3 p-3 bg-amber-50 rounded-lg border border-amber-200">
+                                        <TrendingUp className="h-4 w-4 mt-0.5 flex-shrink-0 text-amber-600" />
+                                        <span className="text-amber-700 leading-relaxed">{improvement}</span>
+                                      </div>
+                                    ))}
+                                  </div>
+                                </div>
+                              )}
+                            </div>
                           </div>
-                        </div>
-                      </CollapsibleContent>
-                    </div>
-                  </Collapsible>
-                ))}
+                        </CollapsibleContent>
+                      </div>
+                    </Collapsible>
+                  ))
+                )}
               </CardContent>
             </Card>
           </div>
