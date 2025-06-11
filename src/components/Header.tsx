@@ -1,6 +1,6 @@
 
 import { Button } from "@/components/ui/button";
-import { Home, FileText } from "lucide-react";
+import { Home, FileText, LogOut } from "lucide-react";
 
 interface HeaderProps {
   isAuthenticated: boolean;
@@ -10,7 +10,7 @@ interface HeaderProps {
   onNavigateToHome?: () => void;
 }
 
-const Header = ({ isAuthenticated, onLogin, onNavigateToResume, onNavigateToHome }: HeaderProps) => {
+const Header = ({ isAuthenticated, onLogout, onNavigateToResume, onNavigateToHome }: HeaderProps) => {
   return (
     <header className="border-b border-border bg-white/80 backdrop-blur-sm sticky top-0 z-50">
       <div className="container mx-auto px-6 py-4">
@@ -18,7 +18,7 @@ const Header = ({ isAuthenticated, onLogin, onNavigateToResume, onNavigateToHome
           <div className="flex-1" /> {/* Empty spacer for center alignment */}
           
           <div className="flex items-center space-x-4">
-            {isAuthenticated ? (
+            {isAuthenticated && (
               <>
                 <Button 
                   variant="outline" 
@@ -38,11 +38,16 @@ const Header = ({ isAuthenticated, onLogin, onNavigateToResume, onNavigateToHome
                   <FileText size={16} />
                   <span>Resume</span>
                 </Button>
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  onClick={onLogout}
+                  className="flex items-center space-x-2"
+                >
+                  <LogOut size={16} />
+                  <span>Logout</span>
+                </Button>
               </>
-            ) : (
-              <Button onClick={onLogin} className="shaurya-gradient hover:opacity-90 transition-opacity">
-                Sign In
-              </Button>
             )}
           </div>
         </div>

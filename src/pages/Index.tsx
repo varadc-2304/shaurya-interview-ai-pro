@@ -1,6 +1,6 @@
+
 import { useState, useEffect } from "react";
 import Header from "@/components/Header";
-import LoginForm from "@/components/LoginForm";
 import InterviewSetup, { InterviewConfig } from "@/components/InterviewSetup";
 import InterviewSession from "@/components/InterviewSession";
 import InterviewResults from "@/components/InterviewResults";
@@ -8,7 +8,7 @@ import Resume from "@/pages/Resume";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 
-type AppState = 'login' | 'setup' | 'interview' | 'results' | 'resume';
+type AppState = 'setup' | 'interview' | 'results' | 'resume';
 
 interface User {
   id: string;
@@ -18,11 +18,12 @@ interface User {
 }
 
 const Index = () => {
-  const [currentState, setCurrentState] = useState<AppState>('login');
+  const [currentState, setCurrentState] = useState<AppState>('setup');
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [user, setUser] = useState<User | null>(null);
   const [interviewConfig, setInterviewConfig] = useState<InterviewConfig | null>(null);
   const [interviewId, setInterviewId] = useState<string | null>(null);
+  const [isCheckingAuth, setIsCheckingAuth] = useState(true);
   const { toast } = useToast();
 
   useEffect(() => {
@@ -45,62 +46,33 @@ const Index = () => {
       } catch (error) {
         console.error('Error processing auto-login:', error);
         sessionStorage.removeItem('auto_login_user');
-      }
-    }
-  }, [toast]);
-
-  const handleLogin = async (email: string, password: string) => {
-    try {
-      // Query the auth table for user credentials
-      const { data: authData, error: authError } = await supabase
-        .from('auth')
-        .select('*')
-        .eq('email', email)
-        .eq('password', password)
-        .single();
-
-      if (authError || !authData) {
-        toast({
-          title: "Login Failed",
-          description: "Invalid email or password.",
-          variant: "destructive"
-        });
+        // Redirect to external site if auto-login fails
+        window.location.href = 'https://ikshvaku-innovations.in';
         return;
       }
-
-      setUser({
-        id: authData.id,
-        email: authData.email,
-        name: authData.name || authData.email.split('@')[0],
-        role: authData.role
-      });
-      setIsAuthenticated(true);
-      setCurrentState('setup');
-      
-      toast({
-        title: "Success!",
-        description: "You have successfully logged in.",
-      });
-    } catch (error) {
-      console.error("Login error:", error);
-      toast({
-        title: "Login Failed",
-        description: "An error occurred during login.",
-        variant: "destructive"
-      });
+    } else {
+      // No auto-login data found, redirect to external site
+      window.location.href = 'https://ikshvaku-innovations.in';
+      return;
     }
-  };
+    
+    setIsCheckingAuth(false);
+  }, [toast]);
 
   const handleLogout = () => {
     setIsAuthenticated(false);
     setUser(null);
-    setCurrentState('login');
+    setCurrentState('setup');
     setInterviewConfig(null);
     setInterviewId(null);
+    
     toast({
       title: "Logged out",
       description: "You have been successfully logged out.",
     });
+    
+    // Redirect to external site after logout
+    window.location.href = 'https://ikshvaku-innovations.in';
   };
 
   const handleStartInterview = async (config: InterviewConfig) => {
@@ -182,8 +154,21 @@ const Index = () => {
     setCurrentState('setup');
   };
 
-  if (currentState === 'login') {
-    return <LoginForm onLogin={handleLogin} />;
+  // Show loading while checking authentication
+  if (isCheckingAuth) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-white flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
+          <p className="mt-4 text-gray-600">Checking authentication...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // If not authenticated, this component shouldn't render as user will be redirected
+  if (!isAuthenticated) {
+    return null;
   }
 
   return (
@@ -192,7 +177,7 @@ const Index = () => {
       {currentState !== 'interview' && (
         <Header 
           isAuthenticated={isAuthenticated}
-          onLogin={() => setCurrentState('login')}
+          onLogin={() => {}} // No login functionality
           onLogout={handleLogout}
           onNavigateToResume={handleNavigateToResume}
           onNavigateToHome={handleNavigateToHome}
