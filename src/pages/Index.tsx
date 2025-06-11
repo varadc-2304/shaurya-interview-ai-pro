@@ -54,7 +54,7 @@ const Index = () => {
       setCurrentState('setup');
       
       toast({
-        title: "Welcome to Shaurya!",
+        title: "Success!",
         description: "You have successfully logged in.",
       });
     } catch (error) {
@@ -150,6 +150,10 @@ const Index = () => {
     setCurrentState('resume');
   };
 
+  const handleNavigateToHome = () => {
+    setCurrentState('setup');
+  };
+
   const handleBackFromResume = () => {
     setCurrentState('setup');
   };
@@ -167,6 +171,7 @@ const Index = () => {
           onLogin={() => setCurrentState('login')}
           onLogout={handleLogout}
           onNavigateToResume={handleNavigateToResume}
+          onNavigateToHome={handleNavigateToHome}
         />
       )}
       
