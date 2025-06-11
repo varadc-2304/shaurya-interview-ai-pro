@@ -22,7 +22,11 @@ import {
   Award,
   BookOpen,
   ChevronDown,
-  ChevronUp
+  ChevronUp,
+  ThumbsUp,
+  AlertTriangle,
+  Sparkles,
+  Calendar
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
@@ -91,6 +95,7 @@ const InterviewResults = ({ interviewId, onStartNewInterview }: InterviewResults
   const [performanceLevel, setPerformanceLevel] = useState('');
   const [overallRecommendation, setOverallRecommendation] = useState('');
   const [expandedQuestion, setExpandedQuestion] = useState<string | null>(null);
+  const [personalizedSummary, setPersonalizedSummary] = useState('');
 
   useEffect(() => {
     fetchInterviewResults();
@@ -100,7 +105,6 @@ const InterviewResults = ({ interviewId, onStartNewInterview }: InterviewResults
     try {
       setLoading(true);
 
-      // Fetch interview data
       const { data: interview, error: interviewError } = await supabase
         .from('interviews')
         .select('*')
@@ -110,7 +114,6 @@ const InterviewResults = ({ interviewId, onStartNewInterview }: InterviewResults
       if (interviewError) throw interviewError;
       setInterviewData(interview);
 
-      // Fetch interview questions and responses
       const { data: questionsData, error: questionsError } = await supabase
         .from('interview_questions')
         .select('*')
@@ -120,9 +123,9 @@ const InterviewResults = ({ interviewId, onStartNewInterview }: InterviewResults
       if (questionsError) throw questionsError;
       setQuestions(questionsData || []);
 
-      // Calculate overall metrics
       if (questionsData && questionsData.length > 0) {
         calculateOverallMetrics(questionsData);
+        generatePersonalizedSummary(questionsData, interview);
       }
 
     } catch (error) {
@@ -130,6 +133,34 @@ const InterviewResults = ({ interviewId, onStartNewInterview }: InterviewResults
     } finally {
       setLoading(false);
     }
+  };
+
+  const generatePersonalizedSummary = (questionsData: InterviewQuestion[], interview: InterviewData) => {
+    const validScores = questionsData.filter(q => q.evaluation_score !== null);
+    const avgScore = validScores.reduce((sum, q) => sum + q.evaluation_score, 0) / validScores.length;
+    
+    const allStrengths = questionsData.flatMap(q => q.strengths || []);
+    const allImprovements = questionsData.flatMap(q => q.improvements || []);
+    
+    const topStrengths = [...new Set(allStrengths)].slice(0, 3);
+    const keyImprovements = [...new Set(allImprovements)].slice(0, 2);
+    
+    const roleSpecific = interview.job_role;
+    const domainSpecific = interview.domain;
+    
+    let summary = `Your ${roleSpecific} interview for the ${domainSpecific} domain showed ${avgScore >= 80 ? 'excellent' : avgScore >= 70 ? 'strong' : avgScore >= 60 ? 'solid' : 'developing'} performance overall. `;
+    
+    if (topStrengths.length > 0) {
+      summary += `You demonstrated particular strength in ${topStrengths.slice(0, 2).join(' and ')}.`;
+    }
+    
+    if (keyImprovements.length > 0) {
+      summary += ` Focus on enhancing ${keyImprovements[0]} to further strengthen your candidacy.`;
+    }
+    
+    summary += ` Your responses show ${avgScore >= 75 ? 'strong readiness' : avgScore >= 60 ? 'good potential' : 'developing skills'} for ${roleSpecific} roles in ${domainSpecific}.`;
+    
+    setPersonalizedSummary(summary);
   };
 
   const calculateOverallMetrics = (questionsData: InterviewQuestion[]) => {
@@ -266,14 +297,14 @@ const InterviewResults = ({ interviewId, onStartNewInterview }: InterviewResults
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="text-center space-y-4">
-          <div className="w-12 h-12 mx-auto bg-blue-100 rounded-full flex items-center justify-center">
-            <Brain className="h-6 w-6 text-blue-600 animate-pulse" />
+      <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50 flex items-center justify-center">
+        <div className="text-center space-y-6">
+          <div className="w-16 h-16 mx-auto bg-gradient-to-br from-blue-500 to-blue-600 rounded-2xl flex items-center justify-center shadow-lg">
+            <Brain className="h-8 w-8 text-white animate-pulse" />
           </div>
-          <div className="space-y-2">
-            <h2 className="text-xl font-semibold text-gray-900">Analyzing Results</h2>
-            <p className="text-gray-600">Processing your interview performance...</p>
+          <div className="space-y-3">
+            <h2 className="text-2xl font-bold text-gray-900">Analyzing Your Performance</h2>
+            <p className="text-gray-600 max-w-md">Our AI is carefully evaluating your responses and generating detailed insights...</p>
           </div>
         </div>
       </div>
@@ -281,69 +312,76 @@ const InterviewResults = ({ interviewId, onStartNewInterview }: InterviewResults
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      {/* Header */}
-      <div className="bg-white border-b border-gray-200">
-        <div className="max-w-5xl mx-auto px-6 py-8">
-          <div className="text-center space-y-4">
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50">
+      {/* Enhanced Header */}
+      <div className="bg-white border-b border-gray-100 shadow-sm">
+        <div className="max-w-6xl mx-auto px-6 py-10">
+          <div className="text-center space-y-6">
             <div className="flex justify-center">
-              <div className="w-16 h-16 bg-gradient-to-br from-blue-600 to-blue-700 rounded-xl flex items-center justify-center shadow-lg">
-                <Trophy className="h-8 w-8 text-white" />
+              <div className="w-20 h-20 bg-gradient-to-br from-blue-600 to-blue-700 rounded-2xl flex items-center justify-center shadow-xl">
+                <Trophy className="h-10 w-10 text-white" />
               </div>
             </div>
-            <div className="space-y-2">
-              <h1 className="text-3xl font-bold text-gray-900">Interview Complete</h1>
-              <p className="text-lg text-gray-600">Your comprehensive performance analysis</p>
+            <div className="space-y-3">
+              <h1 className="text-4xl font-bold text-gray-900">Interview Analysis Complete</h1>
+              <p className="text-xl text-gray-600 max-w-2xl mx-auto">
+                Comprehensive evaluation of your performance with actionable insights
+              </p>
             </div>
             {performanceLevel && (
-              <Badge className={`px-4 py-2 border ${getPerformanceLevelColor(performanceLevel)} font-medium`}>
-                {performanceLevel} Performance
-              </Badge>
+              <div className="flex justify-center">
+                <Badge className={`px-6 py-3 text-lg border ${getPerformanceLevelColor(performanceLevel)} font-semibold`}>
+                  <Star className="mr-2 h-5 w-5" />
+                  {performanceLevel} Performance
+                </Badge>
+              </div>
             )}
           </div>
         </div>
       </div>
 
-      <div className="max-w-5xl mx-auto px-6 py-8">
-        {/* Overall Score Section */}
-        <Card className="mb-8 border-0 shadow-sm">
-          <CardContent className="p-8">
-            <div className="text-center space-y-6">
-              <div className="space-y-2">
-                <div className="flex items-center justify-center space-x-2">
-                  <Target className="h-5 w-5 text-gray-500" />
-                  <span className="text-sm font-medium text-gray-500 uppercase tracking-wide">Overall Score</span>
+      <div className="max-w-6xl mx-auto px-6 py-10">
+        {/* Enhanced Overall Score Section */}
+        <Card className="mb-10 border-0 shadow-lg bg-white/80 backdrop-blur-sm">
+          <CardContent className="p-10">
+            <div className="text-center space-y-8">
+              <div className="space-y-4">
+                <div className="flex items-center justify-center space-x-3">
+                  <Target className="h-6 w-6 text-gray-500" />
+                  <span className="text-lg font-semibold text-gray-500 uppercase tracking-wider">Overall Performance</span>
                 </div>
-                <div className={`text-6xl font-bold ${getScoreColor(overallScore)}`}>
-                  {overallScore}%
+                <div className={`text-7xl font-bold ${getScoreColor(overallScore)}`}>
+                  {overallScore}<span className="text-4xl">%</span>
                 </div>
               </div>
-              <Progress value={overallScore} className="h-3 w-full max-w-md mx-auto" />
+              <Progress value={overallScore} className="h-4 w-full max-w-lg mx-auto" />
               
-              {/* Key Metrics */}
-              <div className="grid grid-cols-3 gap-8 pt-6 border-t border-gray-100">
-                <div className="text-center space-y-1">
-                  <div className="flex items-center justify-center space-x-1 text-gray-500">
-                    <Clock className="h-4 w-4" />
-                    <span className="text-sm font-medium">Duration</span>
+              {/* Enhanced Key Metrics */}
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-8 pt-8 border-t border-gray-100">
+                <div className="text-center space-y-3 p-6 bg-gray-50 rounded-xl">
+                  <div className="flex items-center justify-center space-x-2 text-gray-600">
+                    <Clock className="h-5 w-5" />
+                    <span className="font-semibold">Duration</span>
                   </div>
-                  <div className="text-xl font-semibold text-gray-900">{calculateDuration()}</div>
+                  <div className="text-2xl font-bold text-gray-900">{calculateDuration()}</div>
+                  <p className="text-sm text-gray-500">Total time</p>
                 </div>
                 
-                <div className="text-center space-y-1">
-                  <div className="flex items-center justify-center space-x-1 text-gray-500">
-                    <MessageSquare className="h-4 w-4" />
-                    <span className="text-sm font-medium">Questions</span>
+                <div className="text-center space-y-3 p-6 bg-gray-50 rounded-xl">
+                  <div className="flex items-center justify-center space-x-2 text-gray-600">
+                    <MessageSquare className="h-5 w-5" />
+                    <span className="font-semibold">Questions</span>
                   </div>
-                  <div className="text-xl font-semibold text-gray-900">{questions.length}</div>
+                  <div className="text-2xl font-bold text-gray-900">{questions.length}</div>
+                  <p className="text-sm text-gray-500">Evaluated</p>
                 </div>
                 
-                <div className="text-center space-y-1">
-                  <div className="flex items-center justify-center space-x-1 text-gray-500">
-                    <Award className="h-4 w-4" />
-                    <span className="text-sm font-medium">Recommendation</span>
+                <div className="text-center space-y-3 p-6 bg-gray-50 rounded-xl">
+                  <div className="flex items-center justify-center space-x-2 text-gray-600">
+                    <Award className="h-5 w-5" />
+                    <span className="font-semibold">Recommendation</span>
                   </div>
-                  <Badge className={`border ${getRecommendationColor(overallRecommendation)} font-medium`}>
+                  <Badge className={`text-lg border ${getRecommendationColor(overallRecommendation)} font-semibold py-1 px-3`}>
                     {overallRecommendation}
                   </Badge>
                 </div>
@@ -352,16 +390,19 @@ const InterviewResults = ({ interviewId, onStartNewInterview }: InterviewResults
           </CardContent>
         </Card>
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-10">
           {/* Main Content */}
           <div className="lg:col-span-2 space-y-8">
-            {/* Performance Dimensions */}
+            {/* Enhanced Performance Dimensions */}
             {overallDimensionScores && (
-              <Card className="border-0 shadow-sm">
-                <CardHeader className="pb-4">
-                  <CardTitle className="text-xl font-semibold text-gray-900">Performance Breakdown</CardTitle>
-                  <CardDescription className="text-gray-600">
-                    Evaluation across key competency areas
+              <Card className="border-0 shadow-lg bg-white/80 backdrop-blur-sm">
+                <CardHeader className="pb-6">
+                  <CardTitle className="text-2xl font-bold text-gray-900 flex items-center space-x-3">
+                    <BarChart3 className="h-6 w-6 text-blue-600" />
+                    <span>Performance Breakdown</span>
+                  </CardTitle>
+                  <CardDescription className="text-gray-600 text-lg">
+                    Detailed evaluation across key competency areas
                   </CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-6">
@@ -369,21 +410,21 @@ const InterviewResults = ({ interviewId, onStartNewInterview }: InterviewResults
                     const dimension = dimensionLabels[key as keyof DimensionScores];
                     const IconComponent = dimension.icon;
                     return (
-                      <div key={key} className="space-y-3">
+                      <div key={key} className="space-y-4 p-5 bg-gray-50 rounded-xl">
                         <div className="flex items-center justify-between">
-                          <div className="flex items-center space-x-3">
-                            <div className="w-8 h-8 bg-blue-50 rounded-lg flex items-center justify-center">
-                              <IconComponent className="h-4 w-4 text-blue-600" />
+                          <div className="flex items-center space-x-4">
+                            <div className="w-10 h-10 bg-blue-100 rounded-xl flex items-center justify-center">
+                              <IconComponent className="h-5 w-5 text-blue-600" />
                             </div>
-                            <span className="font-medium text-gray-900">{dimension.label}</span>
+                            <span className="font-semibold text-gray-900 text-lg">{dimension.label}</span>
                           </div>
-                          <div className="flex items-center space-x-2">
-                            <span className={`font-semibold ${getScoreColor(score * 10)}`}>
+                          <div className="flex items-center space-x-3">
+                            <span className={`font-bold text-xl ${getScoreColor(score * 10)}`}>
                               {score}/10
                             </span>
                           </div>
                         </div>
-                        <Progress value={score * 10} className="h-2" />
+                        <Progress value={score * 10} className="h-3" />
                       </div>
                     );
                   })}
@@ -391,93 +432,109 @@ const InterviewResults = ({ interviewId, onStartNewInterview }: InterviewResults
               </Card>
             )}
 
-            {/* Question Analysis */}
-            <Card className="border-0 shadow-sm">
-              <CardHeader className="pb-4">
-                <CardTitle className="text-xl font-semibold text-gray-900">Question Analysis</CardTitle>
-                <CardDescription className="text-gray-600">
-                  Detailed breakdown of your responses
+            {/* Enhanced Question Analysis */}
+            <Card className="border-0 shadow-lg bg-white/80 backdrop-blur-sm">
+              <CardHeader className="pb-6">
+                <CardTitle className="text-2xl font-bold text-gray-900 flex items-center space-x-3">
+                  <MessageSquare className="h-6 w-6 text-blue-600" />
+                  <span>Detailed Question Analysis</span>
+                </CardTitle>
+                <CardDescription className="text-gray-600 text-lg">
+                  In-depth breakdown of each response with strengths and areas for improvement
                 </CardDescription>
               </CardHeader>
-              <CardContent className="space-y-4">
+              <CardContent className="space-y-6">
                 {questions.map((q) => (
                   <Collapsible 
                     key={q.id}
                     open={expandedQuestion === q.id}
                     onOpenChange={(open) => setExpandedQuestion(open ? q.id : null)}
                   >
-                    <div className="border border-gray-200 rounded-lg overflow-hidden">
-                      <CollapsibleTrigger className="w-full p-4 text-left hover:bg-gray-50 transition-colors">
+                    <div className="border border-gray-200 rounded-xl overflow-hidden shadow-sm bg-white">
+                      <CollapsibleTrigger className="w-full p-6 text-left hover:bg-gray-50 transition-colors">
                         <div className="flex items-center justify-between">
-                          <div className="flex items-center space-x-3">
-                            <Badge variant="outline" className="text-xs font-medium">
+                          <div className="flex items-center space-x-4">
+                            <Badge variant="outline" className="text-sm font-semibold px-3 py-1">
                               Q{q.question_number}
                             </Badge>
                             {getScoreIcon(q.evaluation_score || 0)}
-                            <span className={`font-semibold ${getScoreColor(q.evaluation_score || 0)}`}>
+                            <span className={`font-bold text-lg ${getScoreColor(q.evaluation_score || 0)}`}>
                               {q.evaluation_score || 0}%
                             </span>
                           </div>
                           {expandedQuestion === q.id ? (
-                            <ChevronUp className="h-4 w-4 text-gray-500" />
+                            <ChevronUp className="h-5 w-5 text-gray-500" />
                           ) : (
-                            <ChevronDown className="h-4 w-4 text-gray-500" />
+                            <ChevronDown className="h-5 w-5 text-gray-500" />
                           )}
                         </div>
-                        <p className="text-sm text-gray-700 mt-2 text-left font-medium">
+                        <p className="text-gray-700 mt-4 text-left font-medium text-lg leading-relaxed">
                           {q.question_text}
                         </p>
                       </CollapsibleTrigger>
                       
                       <CollapsibleContent>
-                        <div className="border-t border-gray-200 p-4 space-y-4 bg-gray-50">
+                        <div className="border-t border-gray-200 p-6 space-y-6 bg-gray-50">
                           {q.user_response && (
-                            <div className="space-y-2">
-                              <h4 className="text-sm font-medium text-gray-700">Your Response</h4>
-                              <p className="text-sm text-gray-600 bg-white p-3 rounded border">
+                            <div className="space-y-3">
+                              <h4 className="font-semibold text-gray-800 flex items-center space-x-2">
+                                <MessageSquare className="h-4 w-4" />
+                                <span>Your Response</span>
+                              </h4>
+                              <p className="text-gray-700 bg-white p-4 rounded-lg border leading-relaxed">
                                 {q.user_response}
                               </p>
                             </div>
                           )}
                           
                           {q.evaluation_feedback && (
-                            <div className="space-y-2">
-                              <h4 className="text-sm font-medium text-blue-700">AI Assessment</h4>
-                              <p className="text-sm text-blue-600 bg-blue-50 p-3 rounded border border-blue-200">
+                            <div className="space-y-3">
+                              <h4 className="font-semibold text-blue-800 flex items-center space-x-2">
+                                <Brain className="h-4 w-4" />
+                                <span>AI Assessment</span>
+                              </h4>
+                              <p className="text-blue-700 bg-blue-50 p-4 rounded-lg border border-blue-200 leading-relaxed">
                                 {q.evaluation_feedback}
                               </p>
                             </div>
                           )}
 
-                          {q.strengths && q.strengths.length > 0 && (
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                              <div className="space-y-2">
-                                <h4 className="text-sm font-medium text-emerald-700">Strengths</h4>
-                                <ul className="text-sm text-emerald-600 space-y-1">
-                                  {q.strengths.map((strength, idx) => (
-                                    <li key={idx} className="flex items-start space-x-2">
-                                      <CheckCircle className="h-3 w-3 mt-0.5 flex-shrink-0" />
-                                      <span>{strength}</span>
-                                    </li>
-                                  ))}
-                                </ul>
-                              </div>
-                              
-                              {q.improvements && q.improvements.length > 0 && (
+                          {/* Enhanced Strengths and Improvements */}
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            {q.strengths && q.strengths.length > 0 && (
+                              <div className="space-y-3">
+                                <h4 className="font-semibold text-emerald-800 flex items-center space-x-2">
+                                  <ThumbsUp className="h-4 w-4" />
+                                  <span>Strengths</span>
+                                </h4>
                                 <div className="space-y-2">
-                                  <h4 className="text-sm font-medium text-amber-700">Areas for Growth</h4>
-                                  <ul className="text-sm text-amber-600 space-y-1">
-                                    {q.improvements.map((improvement, idx) => (
-                                      <li key={idx} className="flex items-start space-x-2">
-                                        <TrendingUp className="h-3 w-3 mt-0.5 flex-shrink-0" />
-                                        <span>{improvement}</span>
-                                      </li>
-                                    ))}
-                                  </ul>
+                                  {q.strengths.map((strength, idx) => (
+                                    <div key={idx} className="flex items-start space-x-3 p-3 bg-emerald-50 rounded-lg border border-emerald-200">
+                                      <CheckCircle className="h-4 w-4 mt-0.5 flex-shrink-0 text-emerald-600" />
+                                      <span className="text-emerald-700 leading-relaxed">{strength}</span>
+                                    </div>
+                                  ))}
                                 </div>
-                              )}
-                            </div>
-                          )}
+                              </div>
+                            )}
+                            
+                            {q.improvements && q.improvements.length > 0 && (
+                              <div className="space-y-3">
+                                <h4 className="font-semibold text-amber-800 flex items-center space-x-2">
+                                  <AlertTriangle className="h-4 w-4" />
+                                  <span>Areas for Growth</span>
+                                </h4>
+                                <div className="space-y-2">
+                                  {q.improvements.map((improvement, idx) => (
+                                    <div key={idx} className="flex items-start space-x-3 p-3 bg-amber-50 rounded-lg border border-amber-200">
+                                      <TrendingUp className="h-4 w-4 mt-0.5 flex-shrink-0 text-amber-600" />
+                                      <span className="text-amber-700 leading-relaxed">{improvement}</span>
+                                    </div>
+                                  ))}
+                                </div>
+                              </div>
+                            )}
+                          </div>
                         </div>
                       </CollapsibleContent>
                     </div>
@@ -487,51 +544,61 @@ const InterviewResults = ({ interviewId, onStartNewInterview }: InterviewResults
             </Card>
           </div>
 
-          {/* Sidebar */}
-          <div className="space-y-6">
-            {/* Summary */}
-            <Card className="border-0 shadow-sm">
+          {/* Enhanced Sidebar */}
+          <div className="space-y-8">
+            {/* Personalized Summary Box */}
+            <Card className="border-0 shadow-lg bg-gradient-to-br from-blue-50 to-indigo-50">
               <CardHeader className="pb-4">
-                <CardTitle className="text-lg font-semibold text-gray-900">Summary</CardTitle>
+                <CardTitle className="text-xl font-bold text-gray-900 flex items-center space-x-3">
+                  <Sparkles className="h-5 w-5 text-blue-600" />
+                  <span>Personalized Summary</span>
+                </CardTitle>
               </CardHeader>
               <CardContent className="space-y-6">
-                <div className="text-center p-6 bg-blue-50 rounded-lg">
-                  <div className={`text-4xl font-bold ${getScoreColor(overallScore)} mb-2`}>
+                <div className="text-center p-6 bg-white rounded-xl shadow-sm border">
+                  <div className={`text-5xl font-bold ${getScoreColor(overallScore)} mb-3`}>
                     {overallScore}%
                   </div>
-                  <Progress value={overallScore} className="h-2 mb-4" />
+                  <Progress value={overallScore} className="h-3 mb-4" />
                   {performanceLevel && (
-                    <Badge className={`border ${getPerformanceLevelColor(performanceLevel)} font-medium`}>
+                    <Badge className={`border ${getPerformanceLevelColor(performanceLevel)} font-semibold px-4 py-2`}>
                       {performanceLevel}
                     </Badge>
                   )}
                 </div>
                 
-                <div className="space-y-3 text-sm text-gray-600">
-                  <p className="leading-relaxed">
-                    {overallFeedback || 'Your interview performance demonstrates strong communication skills with opportunities for growth in technical depth and specific examples.'}
+                <div className="space-y-4 p-4 bg-white rounded-xl border">
+                  <h4 className="font-semibold text-gray-900 flex items-center space-x-2">
+                    <Brain className="h-4 w-4 text-blue-600" />
+                    <span>Your Interview Insights</span>
+                  </h4>
+                  <p className="text-gray-700 leading-relaxed">
+                    {personalizedSummary}
                   </p>
                 </div>
 
                 {interviewData && (
-                  <div className="pt-4 border-t border-gray-100">
-                    <h4 className="font-medium text-gray-900 mb-3">Interview Details</h4>
-                    <div className="space-y-2 text-sm text-gray-600">
-                      <div className="flex justify-between">
-                        <span>Role:</span>
-                        <span className="font-medium text-gray-900">{interviewData.job_role}</span>
+                  <div className="pt-4 border-t border-gray-200">
+                    <h4 className="font-semibold text-gray-900 mb-4 flex items-center space-x-2">
+                      <Calendar className="h-4 w-4" />
+                      <span>Interview Details</span>
+                    </h4>
+                    <div className="space-y-3 text-sm">
+                      <div className="flex justify-between items-center p-3 bg-white rounded-lg">
+                        <span className="text-gray-600">Role:</span>
+                        <Badge variant="outline" className="font-medium">{interviewData.job_role}</Badge>
                       </div>
-                      <div className="flex justify-between">
-                        <span>Domain:</span>
-                        <span className="font-medium text-gray-900">{interviewData.domain}</span>
+                      <div className="flex justify-between items-center p-3 bg-white rounded-lg">
+                        <span className="text-gray-600">Domain:</span>
+                        <Badge variant="outline" className="font-medium">{interviewData.domain}</Badge>
                       </div>
-                      <div className="flex justify-between">
-                        <span>Experience:</span>
-                        <span className="font-medium text-gray-900">{interviewData.experience}</span>
+                      <div className="flex justify-between items-center p-3 bg-white rounded-lg">
+                        <span className="text-gray-600">Experience:</span>
+                        <Badge variant="outline" className="font-medium">{interviewData.experience}</Badge>
                       </div>
-                      <div className="flex justify-between">
-                        <span>Type:</span>
-                        <span className="font-medium text-gray-900">{interviewData.question_type}</span>
+                      <div className="flex justify-between items-center p-3 bg-white rounded-lg">
+                        <span className="text-gray-600">Type:</span>
+                        <Badge variant="outline" className="font-medium">{interviewData.question_type}</Badge>
                       </div>
                     </div>
                   </div>
@@ -539,22 +606,22 @@ const InterviewResults = ({ interviewId, onStartNewInterview }: InterviewResults
               </CardContent>
             </Card>
 
-            {/* Actions */}
-            <Card className="border-0 shadow-sm">
+            {/* Enhanced Actions */}
+            <Card className="border-0 shadow-lg bg-white/80 backdrop-blur-sm">
               <CardHeader className="pb-4">
-                <CardTitle className="text-lg font-semibold text-gray-900">Next Steps</CardTitle>
+                <CardTitle className="text-xl font-bold text-gray-900">Next Steps</CardTitle>
               </CardHeader>
-              <CardContent className="space-y-3">
+              <CardContent className="space-y-4">
                 <Button 
                   onClick={onStartNewInterview}
-                  className="w-full bg-blue-600 hover:bg-blue-700 text-white font-medium"
+                  className="w-full bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white font-semibold py-3 shadow-lg"
                 >
-                  <RotateCcw className="mr-2 h-4 w-4" />
+                  <RotateCcw className="mr-2 h-5 w-5" />
                   Start New Interview
                 </Button>
                 
-                <Button variant="outline" className="w-full font-medium">
-                  <Download className="mr-2 h-4 w-4" />
+                <Button variant="outline" className="w-full font-semibold py-3 border-2 hover:bg-gray-50">
+                  <Download className="mr-2 h-5 w-5" />
                   Download Report
                 </Button>
               </CardContent>
