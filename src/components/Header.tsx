@@ -38,7 +38,7 @@ const Header = ({ isAuthenticated, onLogout, onNavigateToResume, onNavigateToHom
                   <FileText size={16} />
                   <span>Resume</span>
                 </Button>
-                <Button 
+{/*                 <Button 
                   variant="outline" 
                   size="sm" 
                   onClick={onLogout}
@@ -46,7 +46,7 @@ const Header = ({ isAuthenticated, onLogout, onNavigateToResume, onNavigateToHom
                 >
                   <LogOut size={16} />
                   <span>Logout</span>
-                </Button>
+                </Button> */}
               </>
             )}
           </div>
