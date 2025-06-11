@@ -4,7 +4,6 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
-import { Separator } from "@/components/ui/separator";
 import { 
   Trophy, 
   Clock, 
@@ -37,16 +36,6 @@ interface InterviewResultsProps {
   onStartNewInterview: () => void;
 }
 
-interface DimensionScores {
-  technical_accuracy: number;
-  problem_solving: number;
-  communication: number;
-  experience_examples: number;
-  leadership_collaboration: number;
-  adaptability_learning: number;
-  industry_awareness: number;
-}
-
 interface InterviewQuestion {
   id: string;
   question_number: number;
@@ -56,7 +45,6 @@ interface InterviewQuestion {
   evaluation_feedback: string;
   strengths: string[];
   improvements: string[];
-  dimension_scores?: DimensionScores;
 }
 
 interface InterviewData {
@@ -75,7 +63,6 @@ const InterviewResults = ({ interviewId, onStartNewInterview }: InterviewResults
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [overallScore, setOverallScore] = useState(0);
-  const [overallDimensionScores, setOverallDimensionScores] = useState<DimensionScores | null>(null);
   const [overallFeedback, setOverallFeedback] = useState('');
   const [performanceLevel, setPerformanceLevel] = useState('');
   const [overallRecommendation, setOverallRecommendation] = useState('');
@@ -100,15 +87,10 @@ const InterviewResults = ({ interviewId, onStartNewInterview }: InterviewResults
         .single();
 
       if (interviewError) {
-        console.error('Error fetching interview:', interviewError);
         throw new Error(`Failed to fetch interview: ${interviewError.message}`);
       }
       
-      if (!interview) {
-        throw new Error('Interview not found');
-      }
-
-      console.log('Interview data fetched:', interview);
+      console.log('Interview data:', interview);
       setInterviewData(interview);
 
       // Fetch questions data
@@ -119,139 +101,98 @@ const InterviewResults = ({ interviewId, onStartNewInterview }: InterviewResults
         .order('question_number');
 
       if (questionsError) {
-        console.error('Error fetching questions:', questionsError);
         throw new Error(`Failed to fetch questions: ${questionsError.message}`);
       }
       
-      console.log('Questions data fetched:', questionsData);
+      console.log('Questions data:', questionsData);
       
       if (!questionsData || questionsData.length === 0) {
-        console.warn('No questions found for interview');
         setQuestions([]);
         setOverallScore(0);
         setPerformanceLevel('No Data');
         setOverallRecommendation('Incomplete');
-        setPersonalizedSummary('No interview data available to analyze.');
+        setPersonalizedSummary('No interview data available.');
         return;
       }
 
-      // Process and set questions data
+      // Process questions data
       const processedQuestions = questionsData.map(q => ({
         ...q,
-        strengths: Array.isArray(q.strengths) ? q.strengths : [],
-        improvements: Array.isArray(q.improvements) ? q.improvements : [],
+        strengths: Array.isArray(q.strengths) ? q.strengths : (q.strengths ? [q.strengths] : []),
+        improvements: Array.isArray(q.improvements) ? q.improvements : (q.improvements ? [q.improvements] : []),
         evaluation_score: q.evaluation_score || 0,
-        evaluation_feedback: q.evaluation_feedback || 'No feedback available'
+        evaluation_feedback: q.evaluation_feedback || 'Evaluation pending'
       }));
 
       setQuestions(processedQuestions);
-      calculateOverallMetrics(processedQuestions);
-      generatePersonalizedSummary(processedQuestions, interview);
+      calculateOverallMetrics(processedQuestions, interview);
 
     } catch (error) {
       console.error('Error fetching interview results:', error);
-      setError(error instanceof Error ? error.message : 'An error occurred while loading interview results');
-      setOverallScore(0);
-      setPerformanceLevel('Error');
-      setOverallRecommendation('Error');
-      setPersonalizedSummary('An error occurred while loading your interview results.');
+      setError(error instanceof Error ? error.message : 'Failed to load interview results');
     } finally {
       setLoading(false);
     }
   };
 
-  const generatePersonalizedSummary = (questionsData: InterviewQuestion[], interview: InterviewData) => {
-    console.log('Generating personalized summary for questions:', questionsData);
+  const calculateOverallMetrics = (questionsData: InterviewQuestion[], interview: InterviewData) => {
+    console.log('Calculating metrics for questions:', questionsData);
     
-    const validScores = questionsData.filter(q => q.evaluation_score !== null && q.evaluation_score !== undefined && q.evaluation_score > 0);
-    console.log('Valid scores found:', validScores.length);
-    
-    if (validScores.length === 0) {
-      setPersonalizedSummary('Your interview responses are still being processed. Please check back shortly.');
-      return;
-    }
-    
-    const avgScore = validScores.reduce((sum, q) => sum + q.evaluation_score, 0) / validScores.length;
-    console.log('Average score calculated:', avgScore);
-    
-    const allStrengths = questionsData.flatMap(q => q.strengths || []);
-    const allImprovements = questionsData.flatMap(q => q.improvements || []);
-    
-    const topStrengths = [...new Set(allStrengths)].slice(0, 3);
-    const keyImprovements = [...new Set(allImprovements)].slice(0, 2);
-    
-    const roleSpecific = interview.job_role;
-    const domainSpecific = interview.domain;
-    
-    let summary = `Your ${roleSpecific} interview for the ${domainSpecific} domain showed ${avgScore >= 80 ? 'excellent' : avgScore >= 70 ? 'strong' : avgScore >= 60 ? 'solid' : 'developing'} performance overall. `;
-    
-    if (topStrengths.length > 0) {
-      summary += `You demonstrated particular strength in ${topStrengths.slice(0, 2).join(' and ')}.`;
-    }
-    
-    if (keyImprovements.length > 0) {
-      summary += ` Focus on enhancing ${keyImprovements[0]} to further strengthen your candidacy.`;
-    }
-    
-    summary += ` Your responses show ${avgScore >= 75 ? 'strong readiness' : avgScore >= 60 ? 'good potential' : 'developing skills'} for ${roleSpecific} roles in ${domainSpecific}.`;
-    
-    setPersonalizedSummary(summary);
-  };
-
-  const calculateOverallMetrics = (questionsData: InterviewQuestion[]) => {
-    console.log('Calculating overall metrics for questions:', questionsData);
-    
-    const validScores = questionsData.filter(q => q.evaluation_score !== null && q.evaluation_score !== undefined && q.evaluation_score > 0);
-    console.log('Questions with valid scores:', validScores.length);
+    const validScores = questionsData.filter(q => q.evaluation_score > 0);
+    console.log('Valid scores:', validScores.length);
     
     if (validScores.length === 0) {
-      console.log('No valid scores found, setting defaults');
       setOverallScore(0);
       setPerformanceLevel('Pending');
       setOverallRecommendation('Under Review');
+      setPersonalizedSummary('Your interview responses are being evaluated. Please check back shortly.');
       return;
     }
 
     // Calculate overall score
     const avgScore = validScores.reduce((sum, q) => sum + q.evaluation_score, 0) / validScores.length;
     const roundedScore = Math.round(avgScore);
-    console.log('Calculated average score:', avgScore, 'rounded:', roundedScore);
+    
     setOverallScore(roundedScore);
 
-    // Set dimension scores if available (this would need to be added to the database schema)
-    const sampleDimensions: DimensionScores = {
-      technical_accuracy: Math.floor(roundedScore / 10),
-      problem_solving: Math.floor(roundedScore / 10),
-      communication: Math.floor((roundedScore + 5) / 10),
-      experience_examples: Math.floor((roundedScore - 5) / 10),
-      leadership_collaboration: Math.floor(roundedScore / 10),
-      adaptability_learning: Math.floor(roundedScore / 10),
-      industry_awareness: Math.floor((roundedScore - 10) / 10)
-    };
-    setOverallDimensionScores(sampleDimensions);
-
-    // Determine performance level
+    // Set performance level
     if (avgScore >= 90) setPerformanceLevel('Excellent');
     else if (avgScore >= 80) setPerformanceLevel('Strong');
     else if (avgScore >= 70) setPerformanceLevel('Good');
     else if (avgScore >= 60) setPerformanceLevel('Satisfactory');
-    else if (avgScore >= 50) setPerformanceLevel('Needs Improvement');
-    else setPerformanceLevel('Weak');
+    else setPerformanceLevel('Needs Improvement');
 
-    // Set overall recommendation based on score
+    // Set recommendation
     if (avgScore >= 80) setOverallRecommendation('Strong Hire');
     else if (avgScore >= 70) setOverallRecommendation('Hire');
     else if (avgScore >= 60) setOverallRecommendation('Maybe');
     else setOverallRecommendation('No Hire');
 
-    setOverallFeedback(generateOverallFeedback(questionsData, avgScore));
-  };
-
-  const generateOverallFeedback = (questionsData: InterviewQuestion[], score: number) => {
-    const strengths = questionsData.flatMap(q => q.strengths || []);
-    const improvements = questionsData.flatMap(q => q.improvements || []);
+    // Generate feedback
+    const allStrengths = questionsData.flatMap(q => q.strengths || []);
+    const allImprovements = questionsData.flatMap(q => q.improvements || []);
     
-    return `Based on your ${questionsData.length} responses, you demonstrated ${strengths.length > 0 ? 'strong ' + strengths[0] : 'good communication skills'}. Key areas for development include ${improvements.length > 0 ? improvements[0] : 'providing more specific examples'}.`;
+    setOverallFeedback(`Based on ${questionsData.length} questions, you demonstrated strong performance with an average score of ${roundedScore}%. Key strengths include effective communication and problem-solving approach.`);
+
+    // Generate personalized summary
+    const topStrengths = [...new Set(allStrengths)].slice(0, 3);
+    const keyImprovements = [...new Set(allImprovements)].slice(0, 2);
+    
+    let summary = `Your ${interview.job_role} interview for the ${interview.domain} domain showed ${
+      avgScore >= 80 ? 'excellent' : avgScore >= 70 ? 'strong' : avgScore >= 60 ? 'solid' : 'developing'
+    } performance overall with a ${roundedScore}% average score. `;
+    
+    if (topStrengths.length > 0) {
+      summary += `You demonstrated particular strength in ${topStrengths.slice(0, 2).join(' and ')}. `;
+    }
+    
+    if (keyImprovements.length > 0) {
+      summary += `Focus on ${keyImprovements[0]} to further enhance your performance. `;
+    }
+    
+    summary += `Your responses indicate ${avgScore >= 75 ? 'strong readiness' : avgScore >= 60 ? 'good potential' : 'developing skills'} for ${interview.job_role} roles.`;
+    
+    setPersonalizedSummary(summary);
   };
 
   const formatTime = (dateString: string) => {
@@ -291,7 +232,6 @@ const InterviewResults = ({ interviewId, onStartNewInterview }: InterviewResults
       case 'Good': return 'text-indigo-700 bg-indigo-50 border-indigo-200';
       case 'Satisfactory': return 'text-amber-700 bg-amber-50 border-amber-200';
       case 'Needs Improvement': return 'text-orange-700 bg-orange-50 border-orange-200';
-      case 'Weak': return 'text-red-700 bg-red-50 border-red-200';
       default: return 'text-gray-700 bg-gray-50 border-gray-200';
     }
   };
@@ -306,16 +246,6 @@ const InterviewResults = ({ interviewId, onStartNewInterview }: InterviewResults
     }
   };
 
-  const dimensionLabels = {
-    technical_accuracy: { label: 'Technical Accuracy', icon: Brain },
-    problem_solving: { label: 'Problem Solving', icon: Lightbulb },
-    communication: { label: 'Communication', icon: MessageSquare },
-    experience_examples: { label: 'Experience Examples', icon: BookOpen },
-    leadership_collaboration: { label: 'Leadership & Collaboration', icon: Users },
-    adaptability_learning: { label: 'Adaptability & Learning', icon: TrendingUp },
-    industry_awareness: { label: 'Industry Awareness', icon: BarChart3 }
-  };
-
   if (loading) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50 flex items-center justify-center">
@@ -325,7 +255,7 @@ const InterviewResults = ({ interviewId, onStartNewInterview }: InterviewResults
           </div>
           <div className="space-y-3">
             <h2 className="text-2xl font-bold text-gray-900">Analyzing Your Performance</h2>
-            <p className="text-gray-600 max-w-md">Our AI is carefully evaluating your responses and generating detailed insights...</p>
+            <p className="text-gray-600 max-w-md">Our AI is evaluating your responses...</p>
           </div>
         </div>
       </div>
@@ -354,7 +284,7 @@ const InterviewResults = ({ interviewId, onStartNewInterview }: InterviewResults
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50">
-      {/* Enhanced Header */}
+      {/* Header */}
       <div className="bg-white border-b border-gray-100 shadow-sm">
         <div className="max-w-6xl mx-auto px-6 py-10">
           <div className="text-center space-y-6">
@@ -366,7 +296,7 @@ const InterviewResults = ({ interviewId, onStartNewInterview }: InterviewResults
             <div className="space-y-3">
               <h1 className="text-4xl font-bold text-gray-900">Interview Analysis Complete</h1>
               <p className="text-xl text-gray-600 max-w-2xl mx-auto">
-                Comprehensive evaluation of your performance with actionable insights
+                Comprehensive evaluation of your performance
               </p>
             </div>
             {performanceLevel && (
@@ -382,7 +312,7 @@ const InterviewResults = ({ interviewId, onStartNewInterview }: InterviewResults
       </div>
 
       <div className="max-w-6xl mx-auto px-6 py-10">
-        {/* Enhanced Overall Score Section */}
+        {/* Overall Score Section */}
         <Card className="mb-10 border-0 shadow-lg bg-white/80 backdrop-blur-sm">
           <CardContent className="p-10">
             <div className="text-center space-y-8">
@@ -397,7 +327,7 @@ const InterviewResults = ({ interviewId, onStartNewInterview }: InterviewResults
               </div>
               <Progress value={overallScore} className="h-4 w-full max-w-lg mx-auto" />
               
-              {/* Enhanced Key Metrics */}
+              {/* Key Metrics */}
               <div className="grid grid-cols-1 md:grid-cols-3 gap-8 pt-8 border-t border-gray-100">
                 <div className="text-center space-y-3 p-6 bg-gray-50 rounded-xl">
                   <div className="flex items-center justify-center space-x-2 text-gray-600">
@@ -434,54 +364,15 @@ const InterviewResults = ({ interviewId, onStartNewInterview }: InterviewResults
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-10">
           {/* Main Content */}
           <div className="lg:col-span-2 space-y-8">
-            {/* Enhanced Performance Dimensions */}
-            {overallDimensionScores && (
-              <Card className="border-0 shadow-lg bg-white/80 backdrop-blur-sm">
-                <CardHeader className="pb-6">
-                  <CardTitle className="text-2xl font-bold text-gray-900 flex items-center space-x-3">
-                    <BarChart3 className="h-6 w-6 text-blue-600" />
-                    <span>Performance Breakdown</span>
-                  </CardTitle>
-                  <CardDescription className="text-gray-600 text-lg">
-                    Detailed evaluation across key competency areas
-                  </CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-6">
-                  {Object.entries(overallDimensionScores).map(([key, score]) => {
-                    const dimension = dimensionLabels[key as keyof DimensionScores];
-                    const IconComponent = dimension.icon;
-                    return (
-                      <div key={key} className="space-y-4 p-5 bg-gray-50 rounded-xl">
-                        <div className="flex items-center justify-between">
-                          <div className="flex items-center space-x-4">
-                            <div className="w-10 h-10 bg-blue-100 rounded-xl flex items-center justify-center">
-                              <IconComponent className="h-5 w-5 text-blue-600" />
-                            </div>
-                            <span className="font-semibold text-gray-900 text-lg">{dimension.label}</span>
-                          </div>
-                          <div className="flex items-center space-x-3">
-                            <span className={`font-bold text-xl ${getScoreColor(score * 10)}`}>
-                              {score}/10
-                            </span>
-                          </div>
-                        </div>
-                        <Progress value={score * 10} className="h-3" />
-                      </div>
-                    );
-                  })}
-                </CardContent>
-              </Card>
-            )}
-
-            {/* Enhanced Question Analysis */}
+            {/* Question Analysis */}
             <Card className="border-0 shadow-lg bg-white/80 backdrop-blur-sm">
               <CardHeader className="pb-6">
                 <CardTitle className="text-2xl font-bold text-gray-900 flex items-center space-x-3">
                   <MessageSquare className="h-6 w-6 text-blue-600" />
-                  <span>Detailed Question Analysis</span>
+                  <span>Question Analysis</span>
                 </CardTitle>
                 <CardDescription className="text-gray-600 text-lg">
-                  In-depth breakdown of each response with strengths and areas for improvement
+                  Detailed breakdown of each response
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-6">
@@ -548,7 +439,7 @@ const InterviewResults = ({ interviewId, onStartNewInterview }: InterviewResults
                               </div>
                             )}
 
-                            {/* Enhanced Strengths and Improvements */}
+                            {/* Strengths and Improvements */}
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                               {q.strengths && q.strengths.length > 0 && (
                                 <div className="space-y-3">
@@ -594,14 +485,14 @@ const InterviewResults = ({ interviewId, onStartNewInterview }: InterviewResults
             </Card>
           </div>
 
-          {/* Enhanced Sidebar */}
+          {/* Sidebar */}
           <div className="space-y-8">
-            {/* Personalized Summary Box */}
+            {/* Personalized Summary */}
             <Card className="border-0 shadow-lg bg-gradient-to-br from-blue-50 to-indigo-50">
               <CardHeader className="pb-4">
                 <CardTitle className="text-xl font-bold text-gray-900 flex items-center space-x-3">
                   <Sparkles className="h-5 w-5 text-blue-600" />
-                  <span>Personalized Summary</span>
+                  <span>Summary</span>
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-6">
@@ -620,7 +511,7 @@ const InterviewResults = ({ interviewId, onStartNewInterview }: InterviewResults
                 <div className="space-y-4 p-4 bg-white rounded-xl border">
                   <h4 className="font-semibold text-gray-900 flex items-center space-x-2">
                     <Brain className="h-4 w-4 text-blue-600" />
-                    <span>Your Interview Insights</span>
+                    <span>Your Performance</span>
                   </h4>
                   <p className="text-gray-700 leading-relaxed">
                     {personalizedSummary}
@@ -646,17 +537,13 @@ const InterviewResults = ({ interviewId, onStartNewInterview }: InterviewResults
                         <span className="text-gray-600">Experience:</span>
                         <Badge variant="outline" className="font-medium">{interviewData.experience}</Badge>
                       </div>
-                      <div className="flex justify-between items-center p-3 bg-white rounded-lg">
-                        <span className="text-gray-600">Type:</span>
-                        <Badge variant="outline" className="font-medium">{interviewData.question_type}</Badge>
-                      </div>
                     </div>
                   </div>
                 )}
               </CardContent>
             </Card>
 
-            {/* Enhanced Actions */}
+            {/* Actions */}
             <Card className="border-0 shadow-lg bg-white/80 backdrop-blur-sm">
               <CardHeader className="pb-4">
                 <CardTitle className="text-xl font-bold text-gray-900">Next Steps</CardTitle>
