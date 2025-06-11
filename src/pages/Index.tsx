@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Header from "@/components/Header";
 import LoginForm from "@/components/LoginForm";
 import InterviewSetup, { InterviewConfig } from "@/components/InterviewSetup";
@@ -24,6 +24,30 @@ const Index = () => {
   const [interviewConfig, setInterviewConfig] = useState<InterviewConfig | null>(null);
   const [interviewId, setInterviewId] = useState<string | null>(null);
   const { toast } = useToast();
+
+  useEffect(() => {
+    // Check for auto-login user data
+    const autoLoginUser = sessionStorage.getItem('auto_login_user');
+    if (autoLoginUser) {
+      try {
+        const userData = JSON.parse(autoLoginUser);
+        setUser(userData);
+        setIsAuthenticated(true);
+        setCurrentState('setup');
+        
+        // Clear the auto-login data
+        sessionStorage.removeItem('auto_login_user');
+        
+        toast({
+          title: "Welcome back!",
+          description: `You have been automatically logged in.`
+        });
+      } catch (error) {
+        console.error('Error processing auto-login:', error);
+        sessionStorage.removeItem('auto_login_user');
+      }
+    }
+  }, [toast]);
 
   const handleLogin = async (email: string, password: string) => {
     try {
