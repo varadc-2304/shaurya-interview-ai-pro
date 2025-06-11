@@ -31,6 +31,7 @@ const Resume = ({ onBack, user }: ResumeProps) => {
 
   const fetchResumeSummary = async () => {
     try {
+      console.log('Fetching resume summary for user:', user.id);
       const { data, error } = await supabase
         .from('resume_summary')
         .select('summary_text')
@@ -43,7 +44,10 @@ const Resume = ({ onBack, user }: ResumeProps) => {
       }
 
       if (data) {
+        console.log('Resume summary found:', data.summary_text);
         setResumeSummary(data.summary_text);
+      } else {
+        console.log('No resume summary found for user');
       }
     } catch (error) {
       console.error('Error fetching resume summary:', error);
@@ -52,28 +56,41 @@ const Resume = ({ onBack, user }: ResumeProps) => {
 
   const generateSummary = async () => {
     setIsGeneratingSummary(true);
+    console.log('Starting resume summary generation for user:', user.id);
     
     try {
       const { data, error } = await supabase.functions.invoke('generate-resume-summary', {
         body: { userId: user.id }
       });
 
+      console.log('Function response:', data);
+      console.log('Function error:', error);
+
       if (error) {
+        console.error('Function invocation error:', error);
         throw error;
       }
 
+      if (data?.error) {
+        console.error('Function returned error:', data.error);
+        throw new Error(data.error);
+      }
+
       if (data?.summary) {
+        console.log('Summary generated successfully:', data.summary);
         setResumeSummary(data.summary);
         toast({
           title: "Summary Generated!",
           description: "Your resume summary has been created and saved.",
         });
+      } else {
+        throw new Error('No summary returned from function');
       }
     } catch (error) {
       console.error('Error generating summary:', error);
       toast({
         title: "Error",
-        description: "Failed to generate resume summary. Please try again.",
+        description: `Failed to generate resume summary: ${error.message}`,
         variant: "destructive"
       });
     } finally {

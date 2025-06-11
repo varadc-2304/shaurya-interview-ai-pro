@@ -7,17 +7,6 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-interface ResumeData {
-  personalInfo?: any;
-  education?: any[];
-  workExperience?: any[];
-  skills?: any[];
-  projects?: any[];
-  positions?: any[];
-  achievements?: any[];
-  hobbies?: any[];
-}
-
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
@@ -35,93 +24,76 @@ serve(async (req) => {
     );
 
     const { userId } = await req.json();
+    console.log('Generating resume summary for user:', userId);
 
     if (!userId) {
       throw new Error('User ID is required');
     }
 
     // Fetch all resume data
-    const resumeData: ResumeData = {};
+    const [personalInfo, education, workExperience, skills, projects, achievements, positions, hobbies] = await Promise.all([
+      supabaseClient.from('personal_info').select('*').eq('user_id', userId).single(),
+      supabaseClient.from('education').select('*').eq('user_id', userId),
+      supabaseClient.from('work_experience').select('*').eq('user_id', userId),
+      supabaseClient.from('resume_skills').select('*').eq('user_id', userId),
+      supabaseClient.from('projects').select('*').eq('user_id', userId),
+      supabaseClient.from('achievements').select('*').eq('user_id', userId),
+      supabaseClient.from('positions_of_responsibility').select('*').eq('user_id', userId),
+      supabaseClient.from('hobbies_activities').select('*').eq('user_id', userId)
+    ]);
 
-    // Fetch personal info
-    const { data: personalInfo } = await supabaseClient
-      .from('personal_info')
-      .select('*')
-      .eq('user_id', userId)
-      .single();
-    
-    if (personalInfo) resumeData.personalInfo = personalInfo;
+    console.log('Fetched data:', {
+      personalInfo: personalInfo.data,
+      education: education.data?.length || 0,
+      workExperience: workExperience.data?.length || 0,
+      skills: skills.data?.length || 0,
+      projects: projects.data?.length || 0,
+      achievements: achievements.data?.length || 0,
+      positions: positions.data?.length || 0,
+      hobbies: hobbies.data?.length || 0
+    });
 
-    // Fetch education
-    const { data: education } = await supabaseClient
-      .from('education')
-      .select('*')
-      .eq('user_id', userId);
-    
-    if (education?.length) resumeData.education = education;
-
-    // Fetch work experience
-    const { data: workExperience } = await supabaseClient
-      .from('work_experience')
-      .select('*')
-      .eq('user_id', userId);
-    
-    if (workExperience?.length) resumeData.workExperience = workExperience;
-
-    // Fetch skills
-    const { data: skills } = await supabaseClient
-      .from('resume_skills')
-      .select('*')
-      .eq('user_id', userId);
-    
-    if (skills?.length) resumeData.skills = skills;
-
-    // Fetch projects
-    const { data: projects } = await supabaseClient
-      .from('projects')
-      .select('*')
-      .eq('user_id', userId);
-    
-    if (projects?.length) resumeData.projects = projects;
-
-    // Fetch positions
-    const { data: positions } = await supabaseClient
-      .from('positions_of_responsibility')
-      .select('*')
-      .eq('user_id', userId);
-    
-    if (positions?.length) resumeData.positions = positions;
-
-    // Fetch achievements
-    const { data: achievements } = await supabaseClient
-      .from('achievements')
-      .select('*')
-      .eq('user_id', userId);
-    
-    if (achievements?.length) resumeData.achievements = achievements;
-
-    // Fetch hobbies
-    const { data: hobbies } = await supabaseClient
-      .from('hobbies_activities')
-      .select('*')
-      .eq('user_id', userId);
-    
-    if (hobbies?.length) resumeData.hobbies = hobbies;
-
-    // Generate summary using Gemini
     const geminiApiKey = Deno.env.get('GEMINI_API_KEY');
     if (!geminiApiKey) {
       throw new Error('Gemini API key not configured');
     }
 
+    // Create a comprehensive resume data summary
+    const resumeData = {
+      personalInfo: personalInfo.data || {},
+      education: education.data || [],
+      workExperience: workExperience.data || [],
+      skills: skills.data || [],
+      projects: projects.data || [],
+      achievements: achievements.data || [],
+      positions: positions.data || [],
+      hobbies: hobbies.data || []
+    };
+
+    // Generate AI summary prompt
     const prompt = `
-Based on the following resume data, generate a professional summary (2-3 sentences) that highlights the person's key strengths, experience, and career focus:
+Based on the following resume data, create a compelling 3-4 sentence professional summary that highlights the person's key strengths, experience, and career focus. Make it engaging and tailored to their background.
 
-${JSON.stringify(resumeData, null, 2)}
+Personal Information: ${JSON.stringify(resumeData.personalInfo)}
+Education: ${JSON.stringify(resumeData.education)}
+Work Experience: ${JSON.stringify(resumeData.workExperience)}
+Skills: ${JSON.stringify(resumeData.skills)}
+Projects: ${JSON.stringify(resumeData.projects)}
+Achievements: ${JSON.stringify(resumeData.achievements)}
+Leadership Positions: ${JSON.stringify(resumeData.positions)}
+Hobbies: ${JSON.stringify(resumeData.hobbies)}
 
-Create a concise, compelling professional summary suitable for the top of a resume. Focus on the most relevant skills, experience, and achievements.
+Write a professional summary that:
+1. Starts with their professional identity or field
+2. Highlights 2-3 key technical skills or areas of expertise
+3. Mentions relevant experience or education
+4. Concludes with their career objective or what they bring to organizations
+
+Keep it concise, professional, and impactful. Do not include any JSON formatting or extra text - just return the summary paragraph.
 `;
 
+    console.log('Sending request to Gemini API...');
+    
     const geminiResponse = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent?key=${geminiApiKey}`, {
       method: 'POST',
       headers: {
@@ -132,35 +104,76 @@ Create a concise, compelling professional summary suitable for the top of a resu
           parts: [{
             text: prompt
           }]
-        }]
+        }],
+        generationConfig: {
+          temperature: 0.7,
+          topK: 40,
+          topP: 0.95,
+          maxOutputTokens: 1024,
+        }
       })
     });
 
     if (!geminiResponse.ok) {
-      throw new Error(`Gemini API error: ${geminiResponse.statusText}`);
+      const errorText = await geminiResponse.text();
+      console.error('Gemini API error:', errorText);
+      throw new Error(`Gemini API error: ${geminiResponse.status} ${geminiResponse.statusText}`);
     }
 
     const geminiData = await geminiResponse.json();
-    const summary = geminiData.candidates?.[0]?.content?.parts?.[0]?.text;
+    console.log('Gemini API response received');
 
-    if (!summary) {
-      throw new Error('Failed to generate summary from Gemini');
+    if (!geminiData.candidates || !geminiData.candidates[0] || !geminiData.candidates[0].content) {
+      console.error('Invalid Gemini response structure:', geminiData);
+      throw new Error('Invalid response from Gemini API');
     }
 
-    // Save or update the summary in the database
-    const { error: upsertError } = await supabaseClient
-      .from('resume_summary')
-      .upsert({
-        user_id: userId,
-        summary_text: summary.trim()
-      });
+    const summary = geminiData.candidates[0].content.parts[0].text.trim();
+    console.log('Generated summary:', summary.substring(0, 100) + '...');
 
-    if (upsertError) {
-      throw upsertError;
+    // Save or update the summary in the database
+    const { data: existingSummary } = await supabaseClient
+      .from('resume_summary')
+      .select('id')
+      .eq('user_id', userId)
+      .single();
+
+    if (existingSummary) {
+      // Update existing summary
+      const { error: updateError } = await supabaseClient
+        .from('resume_summary')
+        .update({
+          summary_text: summary,
+          updated_at: new Date().toISOString()
+        })
+        .eq('user_id', userId);
+
+      if (updateError) {
+        console.error('Error updating summary:', updateError);
+        throw updateError;
+      }
+      console.log('Summary updated successfully');
+    } else {
+      // Insert new summary
+      const { error: insertError } = await supabaseClient
+        .from('resume_summary')
+        .insert({
+          user_id: userId,
+          summary_text: summary
+        });
+
+      if (insertError) {
+        console.error('Error inserting summary:', insertError);
+        throw insertError;
+      }
+      console.log('Summary inserted successfully');
     }
 
     return new Response(
-      JSON.stringify({ summary: summary.trim() }),
+      JSON.stringify({ 
+        success: true, 
+        summary: summary 
+      }),
       {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       }
@@ -169,7 +182,10 @@ Create a concise, compelling professional summary suitable for the top of a resu
   } catch (error) {
     console.error('Error in generate-resume-summary function:', error);
     return new Response(
-      JSON.stringify({ error: error.message }),
+      JSON.stringify({ 
+        error: error.message,
+        details: 'Failed to generate resume summary'
+      }),
       {
         status: 500,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
