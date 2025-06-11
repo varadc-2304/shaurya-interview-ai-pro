@@ -664,10 +664,15 @@ export type Database = {
           id: string
           improvements: string[] | null
           interview_id: string
+          performance_level: string | null
           question_number: number
           question_text: string
+          recommendation: string | null
+          response_language: string | null
           strengths: string[] | null
+          user_code_response: string | null
           user_response: string | null
+          user_text_response: string | null
         }
         Insert: {
           created_at?: string
@@ -676,10 +681,15 @@ export type Database = {
           id?: string
           improvements?: string[] | null
           interview_id: string
+          performance_level?: string | null
           question_number: number
           question_text: string
+          recommendation?: string | null
+          response_language?: string | null
           strengths?: string[] | null
+          user_code_response?: string | null
           user_response?: string | null
+          user_text_response?: string | null
         }
         Update: {
           created_at?: string
@@ -688,16 +698,74 @@ export type Database = {
           id?: string
           improvements?: string[] | null
           interview_id?: string
+          performance_level?: string | null
           question_number?: number
           question_text?: string
+          recommendation?: string | null
+          response_language?: string | null
           strengths?: string[] | null
+          user_code_response?: string | null
           user_response?: string | null
+          user_text_response?: string | null
         }
         Relationships: [
           {
             foreignKeyName: "interview_questions_interview_id_fkey"
             columns: ["interview_id"]
             isOneToOne: false
+            referencedRelation: "interviews"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      interview_results: {
+        Row: {
+          average_score: number
+          created_at: string | null
+          duration_minutes: number | null
+          id: string
+          interview_id: string
+          overall_recommendation: string
+          overall_score: number
+          performance_level: string
+          questions_answered: number
+          total_questions: number
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          average_score?: number
+          created_at?: string | null
+          duration_minutes?: number | null
+          id?: string
+          interview_id: string
+          overall_recommendation?: string
+          overall_score?: number
+          performance_level?: string
+          questions_answered?: number
+          total_questions?: number
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          average_score?: number
+          created_at?: string | null
+          duration_minutes?: number | null
+          id?: string
+          interview_id?: string
+          overall_recommendation?: string
+          overall_score?: number
+          performance_level?: string
+          questions_answered?: number
+          total_questions?: number
+          updated_at?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "interview_results_interview_id_fkey"
+            columns: ["interview_id"]
+            isOneToOne: true
             referencedRelation: "interviews"
             referencedColumns: ["id"]
           },
@@ -1905,6 +1973,10 @@ export type Database = {
       calculate_coding_question_marks: {
         Args: { question_id: string }
         Returns: number
+      }
+      calculate_interview_results: {
+        Args: { p_interview_id: string }
+        Returns: string
       }
       calculate_mcq_question_marks: {
         Args: { question_id: string }

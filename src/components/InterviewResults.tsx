@@ -9,7 +9,6 @@ import {
   Clock, 
   MessageSquare, 
   RotateCcw, 
-  Download,
   CheckCircle,
   AlertCircle,
   Target,
@@ -18,9 +17,7 @@ import {
   ChevronDown,
   ChevronUp,
   ThumbsUp,
-  AlertTriangle,
-  Sparkles,
-  Calendar
+  AlertTriangle
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
@@ -39,6 +36,8 @@ interface InterviewQuestion {
   evaluation_feedback: string;
   strengths: string[];
   improvements: string[];
+  performance_level: string;
+  recommendation: string;
 }
 
 interface InterviewData {
@@ -51,14 +50,21 @@ interface InterviewData {
   completed_at: string;
 }
 
+interface InterviewResult {
+  overall_score: number;
+  performance_level: string;
+  overall_recommendation: string;
+  total_questions: number;
+  questions_answered: number;
+  duration_minutes: number;
+}
+
 const InterviewResults = ({ interviewId, onStartNewInterview }: InterviewResultsProps) => {
   const [interviewData, setInterviewData] = useState<InterviewData | null>(null);
+  const [interviewResult, setInterviewResult] = useState<InterviewResult | null>(null);
   const [questions, setQuestions] = useState<InterviewQuestion[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [overallScore, setOverallScore] = useState(0);
-  const [performanceLevel, setPerformanceLevel] = useState('');
-  const [overallRecommendation, setOverallRecommendation] = useState('');
   const [expandedQuestion, setExpandedQuestion] = useState<string | null>(null);
 
   useEffect(() => {
@@ -85,6 +91,40 @@ const InterviewResults = ({ interviewId, onStartNewInterview }: InterviewResults
       console.log('Interview data:', interview);
       setInterviewData(interview);
 
+      // Fetch interview results
+      const { data: results, error: resultsError } = await supabase
+        .from('interview_results')
+        .select('*')
+        .eq('interview_id', interviewId)
+        .single();
+
+      if (resultsError) {
+        console.log('No interview results found, calculating...');
+        // Try to calculate results if they don't exist
+        const { data: resultId, error: calcError } = await supabase.rpc(
+          'calculate_interview_results', 
+          { p_interview_id: interviewId }
+        );
+        
+        if (calcError) {
+          console.error('Error calculating results:', calcError);
+        } else {
+          // Fetch the newly calculated results
+          const { data: newResults, error: newResultsError } = await supabase
+            .from('interview_results')
+            .select('*')
+            .eq('interview_id', interviewId)
+            .single();
+            
+          if (!newResultsError && newResults) {
+            setInterviewResult(newResults);
+          }
+        }
+      } else {
+        console.log('Interview results:', results);
+        setInterviewResult(results);
+      }
+
       // Fetch questions data
       const { data: questionsData, error: questionsError } = await supabase
         .from('interview_questions')
@@ -102,17 +142,17 @@ const InterviewResults = ({ interviewId, onStartNewInterview }: InterviewResults
         throw new Error('No interview questions found');
       }
 
-      // Process questions data
       const processedQuestions = questionsData.map(q => ({
         ...q,
         strengths: Array.isArray(q.strengths) ? q.strengths : [],
         improvements: Array.isArray(q.improvements) ? q.improvements : [],
         evaluation_score: q.evaluation_score || 0,
-        evaluation_feedback: q.evaluation_feedback || 'No evaluation available'
+        evaluation_feedback: q.evaluation_feedback || 'No evaluation available',
+        performance_level: q.performance_level || 'Pending',
+        recommendation: q.recommendation || 'Under Review'
       }));
 
       setQuestions(processedQuestions);
-      calculateOverallMetrics(processedQuestions);
 
     } catch (error) {
       console.error('Error fetching interview results:', error);
@@ -122,54 +162,16 @@ const InterviewResults = ({ interviewId, onStartNewInterview }: InterviewResults
     }
   };
 
-  const calculateOverallMetrics = (questionsData: InterviewQuestion[]) => {
-    console.log('Calculating metrics for questions:', questionsData);
-    
-    const questionsWithScores = questionsData.filter(q => q.evaluation_score > 0);
-    console.log('Questions with scores:', questionsWithScores.length);
-    
-    if (questionsWithScores.length === 0) {
-      setOverallScore(0);
-      setPerformanceLevel('Pending');
-      setOverallRecommendation('Under Review');
-      return;
-    }
-
-    // Calculate overall score
-    const avgScore = questionsWithScores.reduce((sum, q) => sum + q.evaluation_score, 0) / questionsWithScores.length;
-    const roundedScore = Math.round(avgScore);
-    
-    setOverallScore(roundedScore);
-
-    // Set performance level
-    if (avgScore >= 90) setPerformanceLevel('Excellent');
-    else if (avgScore >= 80) setPerformanceLevel('Strong');
-    else if (avgScore >= 70) setPerformanceLevel('Good');
-    else if (avgScore >= 60) setPerformanceLevel('Satisfactory');
-    else setPerformanceLevel('Needs Improvement');
-
-    // Set recommendation
-    if (avgScore >= 80) setOverallRecommendation('Strong Hire');
-    else if (avgScore >= 70) setOverallRecommendation('Hire');
-    else if (avgScore >= 60) setOverallRecommendation('Maybe');
-    else setOverallRecommendation('No Hire');
-  };
-
   const formatTime = (dateString: string) => {
     const date = new Date(dateString);
     return date.toLocaleTimeString();
   };
 
-  const calculateDuration = () => {
-    if (!interviewData?.created_at || !interviewData?.completed_at) return '0:00';
-    
-    const start = new Date(interviewData.created_at);
-    const end = new Date(interviewData.completed_at);
-    const durationMs = end.getTime() - start.getTime();
-    const minutes = Math.floor(durationMs / 60000);
-    const seconds = Math.floor((durationMs % 60000) / 1000);
-    
-    return `${minutes}:${seconds.toString().padStart(2, '0')}`;
+  const formatDuration = (minutes: number) => {
+    if (!minutes) return '0:00';
+    const mins = Math.floor(minutes);
+    const secs = Math.floor((minutes % 1) * 60);
+    return `${mins}:${secs.toString().padStart(2, '0')}`;
   };
 
   const getScoreColor = (score: number) => {
@@ -242,6 +244,10 @@ const InterviewResults = ({ interviewId, onStartNewInterview }: InterviewResults
     );
   }
 
+  const overallScore = interviewResult?.overall_score || 0;
+  const performanceLevel = interviewResult?.performance_level || 'Pending';
+  const overallRecommendation = interviewResult?.overall_recommendation || 'Under Review';
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50">
       {/* Header */}
@@ -294,7 +300,9 @@ const InterviewResults = ({ interviewId, onStartNewInterview }: InterviewResults
                     <Clock className="h-5 w-5" />
                     <span className="font-semibold">Duration</span>
                   </div>
-                  <div className="text-2xl font-bold text-gray-900">{calculateDuration()}</div>
+                  <div className="text-2xl font-bold text-gray-900">
+                    {interviewResult?.duration_minutes ? formatDuration(interviewResult.duration_minutes) : '0:00'}
+                  </div>
                   <p className="text-sm text-gray-500">Total time</p>
                 </div>
                 
@@ -303,7 +311,9 @@ const InterviewResults = ({ interviewId, onStartNewInterview }: InterviewResults
                     <MessageSquare className="h-5 w-5" />
                     <span className="font-semibold">Questions</span>
                   </div>
-                  <div className="text-2xl font-bold text-gray-900">{questions.length}</div>
+                  <div className="text-2xl font-bold text-gray-900">
+                    {interviewResult?.questions_answered || questions.length}
+                  </div>
                   <p className="text-sm text-gray-500">Answered</p>
                 </div>
                 

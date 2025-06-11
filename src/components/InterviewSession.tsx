@@ -68,7 +68,7 @@ const InterviewSession = ({ config, interviewId, userId, onEndInterview }: Inter
           interviewType: config.questionType,
           additionalConstraints: config.additionalConstraints,
           numQuestions: totalQuestions,
-          userId: userId // Pass userId for resume personalization
+          userId: userId
         }
       });
 
@@ -88,7 +88,6 @@ const InterviewSession = ({ config, interviewId, userId, onEndInterview }: Inter
         
         setQuestions(questionList);
         
-        // Log if questions were personalized
         if (data.resumePersonalized) {
           console.log("Questions were personalized based on user's resume");
           toast({
@@ -97,7 +96,6 @@ const InterviewSession = ({ config, interviewId, userId, onEndInterview }: Inter
           });
         }
         
-        // Store questions in database
         for (const question of questionList) {
           await supabase.from('interview_questions').insert({
             interview_id: interviewId,
@@ -106,7 +104,6 @@ const InterviewSession = ({ config, interviewId, userId, onEndInterview }: Inter
           });
         }
         
-        // Read out first question
         if (questionList.length > 0) {
           await playQuestion(questionList[0].text);
         }
@@ -175,15 +172,12 @@ const InterviewSession = ({ config, interviewId, userId, onEndInterview }: Inter
       
       let transcribedText = '';
       
-      // Process audio if provided
       if (response.audioBlob) {
         console.log('Processing audio, size:', response.audioBlob.size);
         
-        // Create unique filename
         const fileName = `interview_${interviewId}_q${currentQuestionIndex + 1}_${Date.now()}.webm`;
         console.log('Uploading to storage with filename:', fileName);
 
-        // Upload to Supabase storage
         const { data: uploadData, error: uploadError } = await supabase.storage
           .from('audio_files')
           .upload(fileName, response.audioBlob, {
@@ -197,14 +191,12 @@ const InterviewSession = ({ config, interviewId, userId, onEndInterview }: Inter
 
         console.log('Upload successful:', uploadData);
 
-        // Get public URL
         const { data: { publicUrl } } = supabase.storage
           .from('audio_files')
           .getPublicUrl(fileName);
 
         console.log('Public URL obtained:', publicUrl);
 
-        // Send URL to speech-to-text function
         console.log('Sending to speech-to-text function...');
         const { data: transcriptionData, error: transcriptionError } = await supabase.functions.invoke('speech-to-text', {
           body: { audioUrl: publicUrl }
@@ -218,13 +210,11 @@ const InterviewSession = ({ config, interviewId, userId, onEndInterview }: Inter
         console.log('Transcription result:', transcriptionData);
         transcribedText = transcriptionData?.text || '';
 
-        // Clean up the uploaded file after processing
         await supabase.storage
           .from('audio_files')
           .remove([fileName]);
       }
 
-      // Combine all response components
       const combinedResponse = [
         transcribedText && `Speech: ${transcribedText}`,
         response.textContent && `Text: ${response.textContent}`,
@@ -242,11 +232,9 @@ const InterviewSession = ({ config, interviewId, userId, onEndInterview }: Inter
 
       console.log('Combined response:', combinedResponse);
 
-      // Evaluate combined response
       const currentQuestion = questions[currentQuestionIndex];
       await evaluateResponse(currentQuestion, combinedResponse);
       
-      // Update interview question with all response components
       await supabase
         .from('interview_questions')
         .update({
@@ -294,14 +282,15 @@ const InterviewSession = ({ config, interviewId, userId, onEndInterview }: Inter
 
       console.log('Evaluation result:', data);
 
-      // Update database with the evaluation data
       const { error: updateError } = await supabase
         .from('interview_questions')
         .update({
           evaluation_score: data.score,
           evaluation_feedback: data.detailed_feedback,
           strengths: data.strengths,
-          improvements: data.improvements
+          improvements: data.improvements,
+          performance_level: data.performance_level,
+          recommendation: data.recommendation
         })
         .eq('interview_id', interviewId)
         .eq('question_number', question.number);
@@ -316,14 +305,15 @@ const InterviewSession = ({ config, interviewId, userId, onEndInterview }: Inter
     } catch (error) {
       console.error('Error evaluating response:', error);
       
-      // Save fallback data to database
       await supabase
         .from('interview_questions')
         .update({
           evaluation_score: 50,
           evaluation_feedback: 'Evaluation failed - technical issue',
           strengths: ['Attempted the question'],
-          improvements: ['Please try again']
+          improvements: ['Please try again'],
+          performance_level: 'Needs Improvement',
+          recommendation: 'Maybe'
         })
         .eq('interview_id', interviewId)
         .eq('question_number', question.number);
@@ -352,6 +342,19 @@ const InterviewSession = ({ config, interviewId, userId, onEndInterview }: Inter
           completed_at: new Date().toISOString()
         })
         .eq('id', interviewId);
+
+      // Calculate and store overall interview results
+      console.log('Calculating interview results...');
+      const { data: resultId, error: resultError } = await supabase.rpc(
+        'calculate_interview_results', 
+        { p_interview_id: interviewId }
+      );
+
+      if (resultError) {
+        console.error('Error calculating interview results:', resultError);
+      } else {
+        console.log('Interview results calculated successfully:', resultId);
+      }
 
       onEndInterview();
     } catch (error) {
@@ -392,7 +395,6 @@ const InterviewSession = ({ config, interviewId, userId, onEndInterview }: Inter
 
   return (
     <div className="h-screen bg-gradient-to-br from-gray-50 to-white flex flex-col overflow-hidden">
-      {/* Minimal Header with Question Number */}
       <div className="flex-none py-3 px-6">
         <div className="max-w-6xl mx-auto">
           <div className="bg-white/95 backdrop-blur-xl rounded-xl px-6 py-3 shadow-lg border border-gray-200">
@@ -413,16 +415,13 @@ const InterviewSession = ({ config, interviewId, userId, onEndInterview }: Inter
         </div>
       </div>
 
-      {/* Main Content - Compact Video Feeds */}
       <div className="flex-1 flex items-center justify-center px-6 pb-24">
         <div className="max-w-6xl w-full">
           <div className="grid grid-cols-2 gap-8 h-[360px]">
-            {/* Left Side - User Camera */}
             <div className="flex items-center justify-center">
               <CameraFeed className="w-full h-full" />
             </div>
 
-            {/* Right Side - AI Avatar */}
             <div className="flex items-center justify-center">
               <AIAvatar 
                 isSpeaking={isSpeaking} 
@@ -433,7 +432,6 @@ const InterviewSession = ({ config, interviewId, userId, onEndInterview }: Inter
         </div>
       </div>
 
-      {/* Floating Controls - Compact */}
       <div className="flex-none">
         <FloatingControls
           onSubmitResponse={handleEnhancedResponse}
