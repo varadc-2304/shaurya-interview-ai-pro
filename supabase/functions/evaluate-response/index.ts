@@ -80,7 +80,6 @@ serve(async (req) => {
       );
     }
 
-    // Simplified evaluation prompt to avoid token limits
     const evaluationPrompt = `
 You are an expert interview evaluator for ${jobRole} positions in ${domain}. 
 
@@ -287,12 +286,13 @@ Score based on technical accuracy, problem-solving ability, communication clarit
 
     console.log(`Evaluation completed with score: ${evaluationData.overall_score}/100`);
 
+    // Return response that matches what the frontend expects
     return new Response(
       JSON.stringify({
         score: evaluationData.overall_score,
         performance_level: evaluationData.performance_level,
         dimension_scores: evaluationData.dimension_scores,
-        detailed_feedback: evaluationData.detailed_feedback,
+        detailed_feedback: evaluationData.interviewer_notes,
         feedback: evaluationData.interviewer_notes,
         strengths: evaluationData.key_strengths,
         improvements: evaluationData.improvement_areas?.map(area => area.actionable_advice) || [],
