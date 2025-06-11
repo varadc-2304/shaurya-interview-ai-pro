@@ -32,6 +32,7 @@ const AchievementsForm = ({ userId }: AchievementsFormProps) => {
 
   const fetchAchievements = async () => {
     try {
+      console.log('Fetching achievements for user:', userId);
       const { data, error } = await supabase
         .from('achievements')
         .select('*')
@@ -40,12 +41,23 @@ const AchievementsForm = ({ userId }: AchievementsFormProps) => {
 
       if (error) {
         console.error('Error fetching achievements:', error);
+        toast({
+          title: "Error",
+          description: "Failed to fetch achievements.",
+          variant: "destructive"
+        });
         return;
       }
 
+      console.log('Fetched achievements:', data);
       setAchievementsList(data || []);
     } catch (error) {
       console.error('Error fetching achievements:', error);
+      toast({
+        title: "Error",
+        description: "Failed to fetch achievements.",
+        variant: "destructive"
+      });
     }
   };
 
@@ -62,12 +74,18 @@ const AchievementsForm = ({ userId }: AchievementsFormProps) => {
     const achievement = achievementsList[index];
     if (achievement.id) {
       try {
+        console.log('Deleting achievement with id:', achievement.id);
         const { error } = await supabase
           .from('achievements')
           .delete()
           .eq('id', achievement.id);
 
-        if (error) throw error;
+        if (error) {
+          console.error('Error deleting achievement:', error);
+          throw error;
+        }
+        
+        console.log('Achievement deleted successfully');
       } catch (error) {
         console.error('Error deleting achievement:', error);
         toast({
@@ -91,9 +109,17 @@ const AchievementsForm = ({ userId }: AchievementsFormProps) => {
 
   const saveAchievements = async () => {
     setIsLoading(true);
+    console.log('Saving achievements for user:', userId);
+    console.log('Achievements to save:', achievementsList);
 
     try {
       for (const achievement of achievementsList) {
+        // Skip empty achievements
+        if (!achievement.achievement_title.trim()) {
+          console.log('Skipping empty achievement');
+          continue;
+        }
+
         const achievementData = {
           user_id: userId,
           achievement_title: achievement.achievement_title,
@@ -102,17 +128,30 @@ const AchievementsForm = ({ userId }: AchievementsFormProps) => {
           date_achieved: achievement.date_achieved || null
         };
 
+        console.log('Saving achievement data:', achievementData);
+
         if (achievement.id) {
           const { error } = await supabase
             .from('achievements')
             .update(achievementData)
             .eq('id', achievement.id);
-          if (error) throw error;
+          
+          if (error) {
+            console.error('Error updating achievement:', error);
+            throw error;
+          }
+          console.log('Achievement updated successfully');
         } else {
-          const { error } = await supabase
+          const { data, error } = await supabase
             .from('achievements')
-            .insert(achievementData);
-          if (error) throw error;
+            .insert(achievementData)
+            .select();
+          
+          if (error) {
+            console.error('Error inserting achievement:', error);
+            throw error;
+          }
+          console.log('Achievement inserted successfully:', data);
         }
       }
 
@@ -125,7 +164,7 @@ const AchievementsForm = ({ userId }: AchievementsFormProps) => {
       console.error('Error saving achievements:', error);
       toast({
         title: "Error",
-        description: "Failed to save achievements.",
+        description: `Failed to save achievements: ${error.message}`,
         variant: "destructive"
       });
     } finally {

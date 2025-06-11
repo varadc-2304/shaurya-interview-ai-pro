@@ -35,6 +35,7 @@ const ProjectsForm = ({ userId }: ProjectsFormProps) => {
 
   const fetchProjects = async () => {
     try {
+      console.log('Fetching projects for user:', userId);
       const { data, error } = await supabase
         .from('projects')
         .select('*')
@@ -43,12 +44,23 @@ const ProjectsForm = ({ userId }: ProjectsFormProps) => {
 
       if (error) {
         console.error('Error fetching projects:', error);
+        toast({
+          title: "Error",
+          description: "Failed to fetch projects.",
+          variant: "destructive"
+        });
         return;
       }
 
+      console.log('Fetched projects:', data);
       setProjectsList(data || []);
     } catch (error) {
       console.error('Error fetching projects:', error);
+      toast({
+        title: "Error",
+        description: "Failed to fetch projects.",
+        variant: "destructive"
+      });
     }
   };
 
@@ -68,12 +80,18 @@ const ProjectsForm = ({ userId }: ProjectsFormProps) => {
     const project = projectsList[index];
     if (project.id) {
       try {
+        console.log('Deleting project with id:', project.id);
         const { error } = await supabase
           .from('projects')
           .delete()
           .eq('id', project.id);
 
-        if (error) throw error;
+        if (error) {
+          console.error('Error deleting project:', error);
+          throw error;
+        }
+        
+        console.log('Project deleted successfully');
       } catch (error) {
         console.error('Error deleting project:', error);
         toast({
@@ -97,9 +115,17 @@ const ProjectsForm = ({ userId }: ProjectsFormProps) => {
 
   const saveProjects = async () => {
     setIsLoading(true);
+    console.log('Saving projects for user:', userId);
+    console.log('Projects to save:', projectsList);
 
     try {
       for (const project of projectsList) {
+        // Skip empty projects
+        if (!project.project_name.trim()) {
+          console.log('Skipping empty project');
+          continue;
+        }
+
         const projectData = {
           user_id: userId,
           project_name: project.project_name,
@@ -111,17 +137,30 @@ const ProjectsForm = ({ userId }: ProjectsFormProps) => {
           github_url: project.github_url
         };
 
+        console.log('Saving project data:', projectData);
+
         if (project.id) {
           const { error } = await supabase
             .from('projects')
             .update(projectData)
             .eq('id', project.id);
-          if (error) throw error;
+          
+          if (error) {
+            console.error('Error updating project:', error);
+            throw error;
+          }
+          console.log('Project updated successfully');
         } else {
-          const { error } = await supabase
+          const { data, error } = await supabase
             .from('projects')
-            .insert(projectData);
-          if (error) throw error;
+            .insert(projectData)
+            .select();
+          
+          if (error) {
+            console.error('Error inserting project:', error);
+            throw error;
+          }
+          console.log('Project inserted successfully:', data);
         }
       }
 
@@ -134,7 +173,7 @@ const ProjectsForm = ({ userId }: ProjectsFormProps) => {
       console.error('Error saving projects:', error);
       toast({
         title: "Error",
-        description: "Failed to save projects.",
+        description: `Failed to save projects: ${error.message}`,
         variant: "destructive"
       });
     } finally {
