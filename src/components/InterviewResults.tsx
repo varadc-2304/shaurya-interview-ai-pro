@@ -7,7 +7,6 @@ import { Progress } from "@/components/ui/progress";
 import { 
   Trophy, 
   Clock, 
-  TrendingUp, 
   MessageSquare, 
   RotateCcw, 
   Download,
@@ -16,11 +15,6 @@ import {
   Target,
   Brain,
   Star,
-  Users,
-  Lightbulb,
-  BarChart3,
-  Award,
-  BookOpen,
   ChevronDown,
   ChevronUp,
   ThumbsUp,
@@ -63,11 +57,9 @@ const InterviewResults = ({ interviewId, onStartNewInterview }: InterviewResults
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [overallScore, setOverallScore] = useState(0);
-  const [overallFeedback, setOverallFeedback] = useState('');
   const [performanceLevel, setPerformanceLevel] = useState('');
   const [overallRecommendation, setOverallRecommendation] = useState('');
   const [expandedQuestion, setExpandedQuestion] = useState<string | null>(null);
-  const [personalizedSummary, setPersonalizedSummary] = useState('');
 
   useEffect(() => {
     fetchInterviewResults();
@@ -107,25 +99,20 @@ const InterviewResults = ({ interviewId, onStartNewInterview }: InterviewResults
       console.log('Questions data:', questionsData);
       
       if (!questionsData || questionsData.length === 0) {
-        setQuestions([]);
-        setOverallScore(0);
-        setPerformanceLevel('No Data');
-        setOverallRecommendation('Incomplete');
-        setPersonalizedSummary('No interview data available.');
-        return;
+        throw new Error('No interview questions found');
       }
 
       // Process questions data
       const processedQuestions = questionsData.map(q => ({
         ...q,
-        strengths: Array.isArray(q.strengths) ? q.strengths : (q.strengths ? [q.strengths] : []),
-        improvements: Array.isArray(q.improvements) ? q.improvements : (q.improvements ? [q.improvements] : []),
+        strengths: Array.isArray(q.strengths) ? q.strengths : [],
+        improvements: Array.isArray(q.improvements) ? q.improvements : [],
         evaluation_score: q.evaluation_score || 0,
-        evaluation_feedback: q.evaluation_feedback || 'Evaluation pending'
+        evaluation_feedback: q.evaluation_feedback || 'No evaluation available'
       }));
 
       setQuestions(processedQuestions);
-      calculateOverallMetrics(processedQuestions, interview);
+      calculateOverallMetrics(processedQuestions);
 
     } catch (error) {
       console.error('Error fetching interview results:', error);
@@ -135,22 +122,21 @@ const InterviewResults = ({ interviewId, onStartNewInterview }: InterviewResults
     }
   };
 
-  const calculateOverallMetrics = (questionsData: InterviewQuestion[], interview: InterviewData) => {
+  const calculateOverallMetrics = (questionsData: InterviewQuestion[]) => {
     console.log('Calculating metrics for questions:', questionsData);
     
-    const validScores = questionsData.filter(q => q.evaluation_score > 0);
-    console.log('Valid scores:', validScores.length);
+    const questionsWithScores = questionsData.filter(q => q.evaluation_score > 0);
+    console.log('Questions with scores:', questionsWithScores.length);
     
-    if (validScores.length === 0) {
+    if (questionsWithScores.length === 0) {
       setOverallScore(0);
       setPerformanceLevel('Pending');
       setOverallRecommendation('Under Review');
-      setPersonalizedSummary('Your interview responses are being evaluated. Please check back shortly.');
       return;
     }
 
     // Calculate overall score
-    const avgScore = validScores.reduce((sum, q) => sum + q.evaluation_score, 0) / validScores.length;
+    const avgScore = questionsWithScores.reduce((sum, q) => sum + q.evaluation_score, 0) / questionsWithScores.length;
     const roundedScore = Math.round(avgScore);
     
     setOverallScore(roundedScore);
@@ -167,32 +153,6 @@ const InterviewResults = ({ interviewId, onStartNewInterview }: InterviewResults
     else if (avgScore >= 70) setOverallRecommendation('Hire');
     else if (avgScore >= 60) setOverallRecommendation('Maybe');
     else setOverallRecommendation('No Hire');
-
-    // Generate feedback
-    const allStrengths = questionsData.flatMap(q => q.strengths || []);
-    const allImprovements = questionsData.flatMap(q => q.improvements || []);
-    
-    setOverallFeedback(`Based on ${questionsData.length} questions, you demonstrated strong performance with an average score of ${roundedScore}%. Key strengths include effective communication and problem-solving approach.`);
-
-    // Generate personalized summary
-    const topStrengths = [...new Set(allStrengths)].slice(0, 3);
-    const keyImprovements = [...new Set(allImprovements)].slice(0, 2);
-    
-    let summary = `Your ${interview.job_role} interview for the ${interview.domain} domain showed ${
-      avgScore >= 80 ? 'excellent' : avgScore >= 70 ? 'strong' : avgScore >= 60 ? 'solid' : 'developing'
-    } performance overall with a ${roundedScore}% average score. `;
-    
-    if (topStrengths.length > 0) {
-      summary += `You demonstrated particular strength in ${topStrengths.slice(0, 2).join(' and ')}. `;
-    }
-    
-    if (keyImprovements.length > 0) {
-      summary += `Focus on ${keyImprovements[0]} to further enhance your performance. `;
-    }
-    
-    summary += `Your responses indicate ${avgScore >= 75 ? 'strong readiness' : avgScore >= 60 ? 'good potential' : 'developing skills'} for ${interview.job_role} roles.`;
-    
-    setPersonalizedSummary(summary);
   };
 
   const formatTime = (dateString: string) => {
@@ -254,8 +214,8 @@ const InterviewResults = ({ interviewId, onStartNewInterview }: InterviewResults
             <Brain className="h-8 w-8 text-white animate-pulse" />
           </div>
           <div className="space-y-3">
-            <h2 className="text-2xl font-bold text-gray-900">Analyzing Your Performance</h2>
-            <p className="text-gray-600 max-w-md">Our AI is evaluating your responses...</p>
+            <h2 className="text-2xl font-bold text-gray-900">Loading Results</h2>
+            <p className="text-gray-600 max-w-md">Fetching your interview performance...</p>
           </div>
         </div>
       </div>
@@ -294,9 +254,9 @@ const InterviewResults = ({ interviewId, onStartNewInterview }: InterviewResults
               </div>
             </div>
             <div className="space-y-3">
-              <h1 className="text-4xl font-bold text-gray-900">Interview Analysis Complete</h1>
+              <h1 className="text-4xl font-bold text-gray-900">Interview Results</h1>
               <p className="text-xl text-gray-600 max-w-2xl mx-auto">
-                Comprehensive evaluation of your performance
+                Your performance analysis is ready
               </p>
             </div>
             {performanceLevel && (
@@ -319,7 +279,7 @@ const InterviewResults = ({ interviewId, onStartNewInterview }: InterviewResults
               <div className="space-y-4">
                 <div className="flex items-center justify-center space-x-3">
                   <Target className="h-6 w-6 text-gray-500" />
-                  <span className="text-lg font-semibold text-gray-500 uppercase tracking-wider">Overall Performance</span>
+                  <span className="text-lg font-semibold text-gray-500 uppercase tracking-wider">Overall Score</span>
                 </div>
                 <div className={`text-7xl font-bold ${getScoreColor(overallScore)}`}>
                   {overallScore}<span className="text-4xl">%</span>
@@ -344,12 +304,12 @@ const InterviewResults = ({ interviewId, onStartNewInterview }: InterviewResults
                     <span className="font-semibold">Questions</span>
                   </div>
                   <div className="text-2xl font-bold text-gray-900">{questions.length}</div>
-                  <p className="text-sm text-gray-500">Evaluated</p>
+                  <p className="text-sm text-gray-500">Answered</p>
                 </div>
                 
                 <div className="text-center space-y-3 p-6 bg-gray-50 rounded-xl">
                   <div className="flex items-center justify-center space-x-2 text-gray-600">
-                    <Award className="h-5 w-5" />
+                    <Star className="h-5 w-5" />
                     <span className="font-semibold">Recommendation</span>
                   </div>
                   <Badge className={`text-lg border ${getRecommendationColor(overallRecommendation)} font-semibold py-1 px-3`}>
@@ -361,209 +321,113 @@ const InterviewResults = ({ interviewId, onStartNewInterview }: InterviewResults
           </CardContent>
         </Card>
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-10">
-          {/* Main Content */}
-          <div className="lg:col-span-2 space-y-8">
-            {/* Question Analysis */}
-            <Card className="border-0 shadow-lg bg-white/80 backdrop-blur-sm">
-              <CardHeader className="pb-6">
-                <CardTitle className="text-2xl font-bold text-gray-900 flex items-center space-x-3">
-                  <MessageSquare className="h-6 w-6 text-blue-600" />
-                  <span>Question Analysis</span>
-                </CardTitle>
-                <CardDescription className="text-gray-600 text-lg">
-                  Detailed breakdown of each response
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-6">
-                {questions.length === 0 ? (
-                  <div className="text-center py-8">
-                    <MessageSquare className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-                    <p className="text-gray-500">No interview questions found</p>
-                  </div>
-                ) : (
-                  questions.map((q) => (
-                    <Collapsible 
-                      key={q.id}
-                      open={expandedQuestion === q.id}
-                      onOpenChange={(open) => setExpandedQuestion(open ? q.id : null)}
-                    >
-                      <div className="border border-gray-200 rounded-xl overflow-hidden shadow-sm bg-white">
-                        <CollapsibleTrigger className="w-full p-6 text-left hover:bg-gray-50 transition-colors">
-                          <div className="flex items-center justify-between">
-                            <div className="flex items-center space-x-4">
-                              <Badge variant="outline" className="text-sm font-semibold px-3 py-1">
-                                Q{q.question_number}
-                              </Badge>
-                              {getScoreIcon(q.evaluation_score || 0)}
-                              <span className={`font-bold text-lg ${getScoreColor(q.evaluation_score || 0)}`}>
-                                {q.evaluation_score || 0}%
-                              </span>
+        {/* Question Analysis */}
+        <Card className="border-0 shadow-lg bg-white/80 backdrop-blur-sm">
+          <CardHeader className="pb-6">
+            <CardTitle className="text-2xl font-bold text-gray-900 flex items-center space-x-3">
+              <MessageSquare className="h-6 w-6 text-blue-600" />
+              <span>Question Analysis</span>
+            </CardTitle>
+            <CardDescription className="text-gray-600 text-lg">
+              Detailed breakdown of each response
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-6">
+            {questions.map((q) => (
+              <Collapsible 
+                key={q.id}
+                open={expandedQuestion === q.id}
+                onOpenChange={(open) => setExpandedQuestion(open ? q.id : null)}
+              >
+                <div className="border border-gray-200 rounded-xl overflow-hidden shadow-sm bg-white">
+                  <CollapsibleTrigger className="w-full p-6 text-left hover:bg-gray-50 transition-colors">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center space-x-4">
+                        <Badge variant="outline" className="text-sm font-semibold px-3 py-1">
+                          Q{q.question_number}
+                        </Badge>
+                        {getScoreIcon(q.evaluation_score)}
+                        <span className={`font-bold text-lg ${getScoreColor(q.evaluation_score)}`}>
+                          {q.evaluation_score}%
+                        </span>
+                      </div>
+                      {expandedQuestion === q.id ? (
+                        <ChevronUp className="h-5 w-5 text-gray-500" />
+                      ) : (
+                        <ChevronDown className="h-5 w-5 text-gray-500" />
+                      )}
+                    </div>
+                    <p className="text-gray-700 mt-4 text-left font-medium text-lg leading-relaxed">
+                      {q.question_text}
+                    </p>
+                  </CollapsibleTrigger>
+                  
+                  <CollapsibleContent>
+                    <div className="border-t border-gray-200 p-6 space-y-6 bg-gray-50">
+                      {/* AI Feedback */}
+                      <div className="space-y-3">
+                        <h4 className="font-semibold text-blue-800 flex items-center space-x-2">
+                          <Brain className="h-4 w-4" />
+                          <span>AI Assessment</span>
+                        </h4>
+                        <p className="text-blue-700 bg-blue-50 p-4 rounded-lg border border-blue-200 leading-relaxed">
+                          {q.evaluation_feedback}
+                        </p>
+                      </div>
+
+                      {/* Strengths and Improvements */}
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        {q.strengths && q.strengths.length > 0 && (
+                          <div className="space-y-3">
+                            <h4 className="font-semibold text-emerald-800 flex items-center space-x-2">
+                              <ThumbsUp className="h-4 w-4" />
+                              <span>Strengths</span>
+                            </h4>
+                            <div className="space-y-2">
+                              {q.strengths.map((strength, idx) => (
+                                <div key={idx} className="flex items-start space-x-3 p-3 bg-emerald-50 rounded-lg border border-emerald-200">
+                                  <CheckCircle className="h-4 w-4 mt-0.5 flex-shrink-0 text-emerald-600" />
+                                  <span className="text-emerald-700 leading-relaxed">{strength}</span>
+                                </div>
+                              ))}
                             </div>
-                            {expandedQuestion === q.id ? (
-                              <ChevronUp className="h-5 w-5 text-gray-500" />
-                            ) : (
-                              <ChevronDown className="h-5 w-5 text-gray-500" />
-                            )}
                           </div>
-                          <p className="text-gray-700 mt-4 text-left font-medium text-lg leading-relaxed">
-                            {q.question_text}
-                          </p>
-                        </CollapsibleTrigger>
+                        )}
                         
-                        <CollapsibleContent>
-                          <div className="border-t border-gray-200 p-6 space-y-6 bg-gray-50">
-                            {/* User Response */}
-                            {q.user_response && (
-                              <div className="space-y-3">
-                                <h4 className="font-semibold text-gray-800 flex items-center space-x-2">
-                                  <MessageSquare className="h-4 w-4" />
-                                  <span>Your Response</span>
-                                </h4>
-                                <div className="bg-white p-4 rounded-lg border">
-                                  <p className="text-gray-700 leading-relaxed">{q.user_response}</p>
+                        {q.improvements && q.improvements.length > 0 && (
+                          <div className="space-y-3">
+                            <h4 className="font-semibold text-amber-800 flex items-center space-x-2">
+                              <AlertTriangle className="h-4 w-4" />
+                              <span>Areas for Growth</span>
+                            </h4>
+                            <div className="space-y-2">
+                              {q.improvements.map((improvement, idx) => (
+                                <div key={idx} className="flex items-start space-x-3 p-3 bg-amber-50 rounded-lg border border-amber-200">
+                                  <AlertTriangle className="h-4 w-4 mt-0.5 flex-shrink-0 text-amber-600" />
+                                  <span className="text-amber-700 leading-relaxed">{improvement}</span>
                                 </div>
-                              </div>
-                            )}
-                            
-                            {/* AI Feedback */}
-                            {q.evaluation_feedback && (
-                              <div className="space-y-3">
-                                <h4 className="font-semibold text-blue-800 flex items-center space-x-2">
-                                  <Brain className="h-4 w-4" />
-                                  <span>AI Assessment</span>
-                                </h4>
-                                <p className="text-blue-700 bg-blue-50 p-4 rounded-lg border border-blue-200 leading-relaxed">
-                                  {q.evaluation_feedback}
-                                </p>
-                              </div>
-                            )}
-
-                            {/* Strengths and Improvements */}
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                              {q.strengths && q.strengths.length > 0 && (
-                                <div className="space-y-3">
-                                  <h4 className="font-semibold text-emerald-800 flex items-center space-x-2">
-                                    <ThumbsUp className="h-4 w-4" />
-                                    <span>Strengths</span>
-                                  </h4>
-                                  <div className="space-y-2">
-                                    {q.strengths.map((strength, idx) => (
-                                      <div key={idx} className="flex items-start space-x-3 p-3 bg-emerald-50 rounded-lg border border-emerald-200">
-                                        <CheckCircle className="h-4 w-4 mt-0.5 flex-shrink-0 text-emerald-600" />
-                                        <span className="text-emerald-700 leading-relaxed">{strength}</span>
-                                      </div>
-                                    ))}
-                                  </div>
-                                </div>
-                              )}
-                              
-                              {q.improvements && q.improvements.length > 0 && (
-                                <div className="space-y-3">
-                                  <h4 className="font-semibold text-amber-800 flex items-center space-x-2">
-                                    <AlertTriangle className="h-4 w-4" />
-                                    <span>Areas for Growth</span>
-                                  </h4>
-                                  <div className="space-y-2">
-                                    {q.improvements.map((improvement, idx) => (
-                                      <div key={idx} className="flex items-start space-x-3 p-3 bg-amber-50 rounded-lg border border-amber-200">
-                                        <TrendingUp className="h-4 w-4 mt-0.5 flex-shrink-0 text-amber-600" />
-                                        <span className="text-amber-700 leading-relaxed">{improvement}</span>
-                                      </div>
-                                    ))}
-                                  </div>
-                                </div>
-                              )}
+                              ))}
                             </div>
                           </div>
-                        </CollapsibleContent>
-                      </div>
-                    </Collapsible>
-                  ))
-                )}
-              </CardContent>
-            </Card>
-          </div>
-
-          {/* Sidebar */}
-          <div className="space-y-8">
-            {/* Personalized Summary */}
-            <Card className="border-0 shadow-lg bg-gradient-to-br from-blue-50 to-indigo-50">
-              <CardHeader className="pb-4">
-                <CardTitle className="text-xl font-bold text-gray-900 flex items-center space-x-3">
-                  <Sparkles className="h-5 w-5 text-blue-600" />
-                  <span>Summary</span>
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-6">
-                <div className="text-center p-6 bg-white rounded-xl shadow-sm border">
-                  <div className={`text-5xl font-bold ${getScoreColor(overallScore)} mb-3`}>
-                    {overallScore}%
-                  </div>
-                  <Progress value={overallScore} className="h-3 mb-4" />
-                  {performanceLevel && (
-                    <Badge className={`border ${getPerformanceLevelColor(performanceLevel)} font-semibold px-4 py-2`}>
-                      {performanceLevel}
-                    </Badge>
-                  )}
-                </div>
-                
-                <div className="space-y-4 p-4 bg-white rounded-xl border">
-                  <h4 className="font-semibold text-gray-900 flex items-center space-x-2">
-                    <Brain className="h-4 w-4 text-blue-600" />
-                    <span>Your Performance</span>
-                  </h4>
-                  <p className="text-gray-700 leading-relaxed">
-                    {personalizedSummary}
-                  </p>
-                </div>
-
-                {interviewData && (
-                  <div className="pt-4 border-t border-gray-200">
-                    <h4 className="font-semibold text-gray-900 mb-4 flex items-center space-x-2">
-                      <Calendar className="h-4 w-4" />
-                      <span>Interview Details</span>
-                    </h4>
-                    <div className="space-y-3 text-sm">
-                      <div className="flex justify-between items-center p-3 bg-white rounded-lg">
-                        <span className="text-gray-600">Role:</span>
-                        <Badge variant="outline" className="font-medium">{interviewData.job_role}</Badge>
-                      </div>
-                      <div className="flex justify-between items-center p-3 bg-white rounded-lg">
-                        <span className="text-gray-600">Domain:</span>
-                        <Badge variant="outline" className="font-medium">{interviewData.domain}</Badge>
-                      </div>
-                      <div className="flex justify-between items-center p-3 bg-white rounded-lg">
-                        <span className="text-gray-600">Experience:</span>
-                        <Badge variant="outline" className="font-medium">{interviewData.experience}</Badge>
+                        )}
                       </div>
                     </div>
-                  </div>
-                )}
-              </CardContent>
-            </Card>
+                  </CollapsibleContent>
+                </div>
+              </Collapsible>
+            ))}
+          </CardContent>
+        </Card>
 
-            {/* Actions */}
-            <Card className="border-0 shadow-lg bg-white/80 backdrop-blur-sm">
-              <CardHeader className="pb-4">
-                <CardTitle className="text-xl font-bold text-gray-900">Next Steps</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <Button 
-                  onClick={onStartNewInterview}
-                  className="w-full bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white font-semibold py-3 shadow-lg"
-                >
-                  <RotateCcw className="mr-2 h-5 w-5" />
-                  Start New Interview
-                </Button>
-                
-                <Button variant="outline" className="w-full font-semibold py-3 border-2 hover:bg-gray-50">
-                  <Download className="mr-2 h-5 w-5" />
-                  Download Report
-                </Button>
-              </CardContent>
-            </Card>
-          </div>
+        {/* Actions */}
+        <div className="mt-10 text-center space-y-4">
+          <Button 
+            onClick={onStartNewInterview}
+            className="bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white font-semibold py-3 px-8 shadow-lg"
+          >
+            <RotateCcw className="mr-2 h-5 w-5" />
+            Start New Interview
+          </Button>
         </div>
       </div>
     </div>

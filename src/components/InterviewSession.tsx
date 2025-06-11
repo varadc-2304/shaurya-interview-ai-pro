@@ -294,26 +294,39 @@ const InterviewSession = ({ config, interviewId, userId, onEndInterview }: Inter
 
       console.log('Evaluation result:', data);
 
-      // Update database with comprehensive evaluation data
-      await supabase
+      // Update database with the evaluation data
+      const { error: updateError } = await supabase
         .from('interview_questions')
         .update({
-          evaluation_score: data?.score || 0,
-          evaluation_feedback: data?.feedback || '',
-          strengths: data?.strengths || [],
-          improvements: data?.improvements || [],
-          dimension_scores: data?.dimension_scores || null,
-          detailed_feedback: data?.detailed_feedback || null,
-          cultural_fit: data?.cultural_fit || null,
-          recommendation: data?.recommendation || null,
-          confidence_level: data?.confidence_level || null,
-          follow_up_questions: data?.follow_up_questions || []
+          evaluation_score: data.score,
+          evaluation_feedback: data.detailed_feedback,
+          strengths: data.strengths,
+          improvements: data.improvements
         })
         .eq('interview_id', interviewId)
         .eq('question_number', question.number);
 
+      if (updateError) {
+        console.error('Error updating question with evaluation:', updateError);
+        throw updateError;
+      }
+
+      console.log('Successfully saved evaluation to database');
+
     } catch (error) {
       console.error('Error evaluating response:', error);
+      
+      // Save fallback data to database
+      await supabase
+        .from('interview_questions')
+        .update({
+          evaluation_score: 50,
+          evaluation_feedback: 'Evaluation failed - technical issue',
+          strengths: ['Attempted the question'],
+          improvements: ['Please try again']
+        })
+        .eq('interview_id', interviewId)
+        .eq('question_number', question.number);
     }
   };
 

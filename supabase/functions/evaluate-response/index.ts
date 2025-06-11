@@ -48,9 +48,9 @@ Answer: ${answer}
 
 Provide a JSON response with this structure:
 {
-  "overall_score": <number 0-100>,
+  "score": <number 0-100>,
   "performance_level": "<Excellent|Strong|Good|Satisfactory|Needs Improvement>",
-  "strengths": ["strength1", "strength2", "strength3"],
+  "strengths": ["strength1", "strength2"],
   "improvements": ["improvement1", "improvement2"],
   "detailed_feedback": "comprehensive feedback text",
   "recommendation": "<Strong Hire|Hire|Maybe|No Hire>"
@@ -92,20 +92,18 @@ Provide a JSON response with this structure:
       }
     } catch (parseError) {
       console.error('JSON parsing failed:', parseError);
-      // Fallback evaluation
-      const fallbackScore = Math.floor(Math.random() * 31) + 60;
       evaluationData = {
-        overall_score: fallbackScore,
-        performance_level: fallbackScore >= 80 ? "Strong" : fallbackScore >= 70 ? "Good" : "Satisfactory",
-        strengths: ["Clear communication", "Good understanding", "Relevant experience"],
-        improvements: ["Provide more specific examples", "Add technical details"],
-        detailed_feedback: "The response shows understanding but could benefit from more specific examples and technical depth.",
-        recommendation: fallbackScore >= 75 ? "Hire" : "Maybe"
+        score: 60,
+        performance_level: "Satisfactory",
+        strengths: ["Clear communication"],
+        improvements: ["Provide more specific examples"],
+        detailed_feedback: "The response shows understanding but could benefit from more specific examples.",
+        recommendation: "Maybe"
       };
     }
 
     // Ensure valid data structure
-    const score = Math.max(0, Math.min(100, evaluationData.overall_score || 70));
+    const score = Math.max(0, Math.min(100, evaluationData.score || 60));
     const result = {
       score: score,
       performance_level: evaluationData.performance_level || "Good",
